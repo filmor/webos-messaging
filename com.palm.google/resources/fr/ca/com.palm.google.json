@@ -1,0 +1,123 @@
+{
+	"capabilityProviders": [
+		{
+			"capability": "CONTACTS",
+			"dbkinds": {
+				"contact": "com.palm.contact.google:1"
+			},
+			"id": "com.palm.google.contacts",
+			"implementation": "palm://com.palm.service.contacts.google/",
+			"onCreate": "palm://com.palm.service.contacts.google/onCreate",
+			"onCredentialsChanged": "palm://com.palm.service.contacts.google/credentialsChanged",
+			"onDelete": "palm://com.palm.service.contacts.google/onDelete",
+			"onEnabled": "palm://com.palm.service.contacts.google/onEnabled",
+			"refetchPhoto": "palm://com.palm.service.contacts.google/refetchPhoto",
+			"sync": "palm://com.palm.service.contacts.google/sync"
+		},
+		{
+			"capability": "MESSAGING",
+			"capabilitySubtype": "IM",
+			"chatWithNonBuddies": false,
+			"dbkinds": {
+				"imcommand": "com.palm.imcommand.libpurple:1",
+				"immessage": "com.palm.immessage.libpurple:1"
+			},
+			"icon": {
+				"loc_32x32": "images/gtalk-32x32.png",
+				"loc_48x48": "images/gtalk-48x48.png",
+				"splitter": "images/gtalk-32x32.png"
+			},
+			"id": "com.palm.google.talk",
+			"implementation": "palm://com.palm.imlibpurple/",
+			"loc_shortName": "Google",
+			"onEnabled": "palm://com.palm.imlibpurple/onEnabled",
+			"readOnlyData": true,
+			"serviceName": "type_gtalk"
+		},
+		{
+			"capability": "CALENDAR",
+			"dbkinds": {
+				"calendar": "com.palm.calendar.google:1",
+				"calendarevent": "com.palm.calendarevent.google:1"
+			},
+			"icon": {
+				"loc_32x32": "images/googlecalendar-32x32.png",
+				"loc_48x48": "images/googlecalendar-48x48.png"
+			},
+			"id": "com.palm.google.calendar",
+			"implementation": "palm://com.palm.service.calendar.google/",
+			"onCreate": "palm://com.palm.service.calendar.google/onCreate",
+			"onCredentialsChanged": "palm://com.palm.service.calendar.google/credentialsChanged",
+			"onDelete": "palm://com.palm.service.calendar.google/onDelete",
+			"onEnabled": "palm://com.palm.service.calendar.google/onEnabled",
+			"subKind": "com.palm.calendarevent.google:1",
+			"sync": "palm://com.palm.service.calendar.google/sync",
+			"validator": "palm://com.palm.service.calendar.google/checkCredentials"
+		},
+		{
+			"capability": "MAIL",
+			"config": {
+				"encryption": "ssl",
+				"port": 993,
+				"server": "imap.gmail.com",
+				"smtpConfig": {
+					"encryption": "ssl",
+					"port": 465,
+					"server": "smtp.gmail.com",
+					"useSmtpAuth": true
+				},
+				"syncFrequencyMins": 15
+			},
+			"dbkinds": {
+				"email": "com.palm.imap.email:1"
+			},
+			"id": "com.palm.google.mail",
+			"implementation": "palm://com.palm.imap/",
+			"onCreate": "palm://com.palm.imap/accountCreated",
+			"onCredentialsChanged": "palm://com.palm.imap/credentialsChanged",
+			"onDelete": "palm://com.palm.imap/accountDeleted",
+			"onEnabled": "palm://com.palm.imap/accountEnabled",
+			"subKind": "com.palm.imap.email:1"
+		},
+		{
+			"capability": "DOCUMENTS",
+			"id": "com.palm.google.documents"
+		}
+	],
+	"disallowed_locales": [
+		"en_cn",
+		"zh_cn",
+		"zh_hk"
+	],
+	"icon": {
+		"loc_32x32": "images/google-32x32.png",
+		"loc_48x48": "images/google-48x48.png"
+	},
+	"loc_name": "Google",
+	"loc_usernameLabel": "ADRESSE DE COURRIEL",
+	"readPermissions": [
+		"com.palm.imap",
+		"com.palm.smtp",
+		"com.palm.imlibpurple",
+		"com.palm.service.contacts",
+		"com.palm.service.calendar.google",
+		"com.palm.service.contacts.google",
+		"com.palm.service.contacts.linker",
+		"com.palm.app.messaging",
+		"com.palm.app.calendar",
+		"com.palm.app.contacts",
+		"com.palm.app.email",
+		"com.quickoffice.webos",
+		"com.quickoffice.ar"
+	],
+	"templateId": "com.palm.google",
+	"validator": "palm://com.palm.service.contacts.google/checkCredentials",
+	"writePermissions": [
+		"com.palm.app.messaging",
+		"com.palm.app.calendar",
+		"com.palm.app.contacts",
+		"com.palm.app.email",
+		"com.quickoffice.webos",
+		"com.quickoffice.ar"
+	]
+}

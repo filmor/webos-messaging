@@ -1,0 +1,39 @@
+{
+	"templateId": "com.palm.aol",
+	"loc_name": "AIM",
+	"icon": {
+		"loc_32x32": "images/aim-32x32.png",
+		"loc_48x48": "images/aim-logo.png"
+	},
+	"validator": "palm://com.palm.imaccountvalidator/checkCredentials",
+	"readPermissions": [
+		"com.palm.imlibpurple",
+		"com.palm.app.messaging",
+		"com.palm.app.contacts",
+		"com.palm.service.contacts",
+		"com.palm.service.contacts.linker"
+		],
+    "writePermissions": [
+		"com.palm.app.contacts",
+		"com.palm.app.messaging"
+		],
+	"capabilityProviders": [
+		{
+			"capability": "MESSAGING",
+			"capabilitySubtype": "IM",
+			"id": "com.palm.aol.aim",
+			"loc_shortName": "AIM",
+			"icon": {
+				"splitter": "images/aim-32x32.png"
+			},
+			"implementation": "palm://com.palm.imlibpurple/",
+			"onEnabled": "palm://com.palm.imlibpurple/onEnabled",
+			"readOnlyData": true,
+			"serviceName":"type_aim",
+			"dbkinds": {
+				"immessage":"com.palm.immessage.libpurple:1",
+				"imcommand":"com.palm.imcommand.libpurple:1"
+			}
+		}
+	]
+}
