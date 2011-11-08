@@ -1,0 +1,16 @@
+{
+    "id": "com.palm.immessage.libpurple:1",
+    "extends": ["com.palm.immessage:1"],
+    "owner": "com.palm.imlibpurple",
+    "sync": true,
+    "indexes": [
+        {
+            "name": "outgoingMsg",
+            "props": [{"name": "folder"},{"name": "status"},{"name": "localTimestamp"}]
+        },
+        {
+            "name": "serviceAndUsername",
+            "props": [{"name": "serviceName"},{"name": "username"}]
+        }
+    ]
+}

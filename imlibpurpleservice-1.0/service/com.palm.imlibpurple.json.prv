@@ -1,0 +1,25 @@
+{
+	"role": {
+		"exeName":"/usr/bin/imlibpurpletransport",
+		"type":"regular",
+		"allowedNames":["com.palm.imlibpurple"]
+	},
+	"permissions": [{
+		"service":"com.palm.imlibpurple",
+		"inbound": [
+			"com.palm.imlibpurple",
+			"com.palm.activitymanager",
+			"com.palm.app.messaging",
+			"com.palm.service.accounts"
+		],
+		"outbound": [
+			"com.palm.imlibpurple",
+			"com.palm.db",
+			"com.palm.tempdb",
+			"com.palm.activitymanager",
+			"com.palm.connectionmanager",
+			"com.palm.display",
+			"com.palm.service.accounts"
+		]
+	}]
+}

@@ -1,0 +1,15 @@
+{
+    "id": "com.palm.contact.libpurple:1",
+    "extends": ["com.palm.contact:1"],
+    "owner": "com.palm.imlibpurple",
+    "indexes": [
+        {
+            "name": "byAccountId",
+            "props": [{"name": "accountId"}]
+        },
+        {
+            "name": "byUsernameAndServiceName",
+            "props": [{"name": "ims.type"},{"name": "ims.value"}]
+        }
+    ]
+}

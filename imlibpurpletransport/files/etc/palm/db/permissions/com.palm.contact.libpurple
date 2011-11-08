@@ -1,0 +1,11 @@
+[
+	{
+		"type":"db.kind",
+		"object":"com.palm.contact.libpurple:1",
+        "caller": "com.palm.*",
+        "operations": {
+            "read": "allow",
+            "update": "allow"
+        }
+	}
+]

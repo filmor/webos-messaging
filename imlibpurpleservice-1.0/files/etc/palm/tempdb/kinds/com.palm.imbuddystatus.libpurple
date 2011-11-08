@@ -1,0 +1,15 @@
+{
+    "id": "com.palm.imbuddystatus.libpurple:1",
+    "extends": ["com.palm.imbuddystatus:1"],
+    "owner": "com.palm.imlibpurple",
+    "indexes": [
+        {
+            "name": "byAccountId",
+            "props": [{"name": "accountId"},{"name": "username"}]
+        },
+        {
+            "name": "byUserName",
+            "props": [{"name": "serviceName"},{"name": "username"}]
+        }
+    ]
+}

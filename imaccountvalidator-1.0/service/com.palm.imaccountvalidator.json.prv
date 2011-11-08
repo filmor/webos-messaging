@@ -1,0 +1,13 @@
+{
+	"role": {
+		"exeName":"/usr/bin/imaccountvalidator",
+		"type":"regular",
+		"allowedNames":["com.palm.imaccountvalidator"]
+	},
+	"permissions": [{
+		"service":"com.palm.imaccountvalidator",
+		"inbound": ["*"],
+		"outbound": ["*"]
+	}]
+}
+

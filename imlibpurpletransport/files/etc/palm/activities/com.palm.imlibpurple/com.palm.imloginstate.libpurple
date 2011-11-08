@@ -1,0 +1,30 @@
+{
+	"start": true,
+	"activity": {
+		"name": "Libpurple loginstate",
+		"description": "Watch for changes to the imloginstate",
+		"type": {
+          	"explicit":true,
+          	"power":true,
+          	"foreground": true
+        },
+        "requirements": {
+        	"internet":true
+        },
+		"trigger": {
+			"method": "palm://com.palm.db/watch",
+			"key": "fired",
+			"params": {
+				"subscribe": true,
+				"query": {
+					"from": "com.palm.imloginstate.libpurple:1",
+					"where": [{"prop":"_rev","op": ">","val":0}]
+				}
+			}
+		},
+		"callback": {
+			"method": "palm://com.palm.imlibpurple/loginStateChanged",
+			"params": {}
+		}
+	}
+}

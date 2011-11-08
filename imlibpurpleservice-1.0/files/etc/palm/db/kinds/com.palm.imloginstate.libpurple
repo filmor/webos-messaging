@@ -1,0 +1,23 @@
+{
+    "id": "com.palm.imloginstate.libpurple:1",
+    "extends": ["com.palm.imloginstate:1"],
+    "owner": "com.palm.imlibpurple",
+    "indexes": [
+        {
+            "name": "byrevision",
+            "props": [{"name": "_rev"}]
+        },
+        {
+            "name": "byIpAddress",
+            "props": [{"name": "ipAddress"}]
+        },
+        {
+            "name": "byUserAndService",
+            "props": [{"name": "serviceName"},{"name": "username"}]
+        },
+        {
+            "name": "byAccountId",
+            "props": [{"name": "accountId"}] 
+        }
+    ]
+}

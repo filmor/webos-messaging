@@ -1,0 +1,23 @@
+{
+    "id": "com.palm.imcommand.libpurple:1",
+    "extends": ["com.palm.imcommand:1"],
+    "owner": "com.palm.imlibpurple",
+    "indexes": [
+        {
+            "name": "byrevision",
+            "props": [{"name": "_rev"}]
+        },
+        {
+            "name": "outgoingCmd",
+            "props": [{"name": "handler"}, {"name": "status", "default":"pending"}]
+        },
+        {
+            "name": "waitingCmd",
+            "props": [{"name": "status", "default":"pending"}]
+        },
+        {
+            "name": "pendingBuddyInvite",
+            "props": [{"name": "serviceName"},{"name": "fromUsername"}, {"name": "targetUsername"} ]
+        }
+    ]
+}

@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.palm.imlibpurple
+Exec=/usr/bin/imlibpurpletransport -c {\"log\":{\"appender\":{\"type\":\"pmlog\"},\"levels\":{\"imlibpurple\":\"info\"}}} PalmPre Palm-Pre/1.5

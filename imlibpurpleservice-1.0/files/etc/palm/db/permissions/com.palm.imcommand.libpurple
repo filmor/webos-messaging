@@ -1,0 +1,22 @@
+[
+    {
+        "type": "db.kind",
+        "object": "com.palm.imcommand.libpurple:1",
+        "caller": "com.palm.*",
+        "operations": {
+            "read": "allow",
+            "update": "allow"
+        }
+    },
+    {
+        "type": "db.kind",
+        "object": "com.palm.imcommand.libpurple:1",
+        "caller": "com.palm.app.messaging",
+        "operations": {
+            "create": "allow",
+            "delete": "allow",
+            "read": "allow",
+            "update": "allow"
+        }
+    }
+]

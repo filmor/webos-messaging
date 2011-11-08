@@ -1,0 +1,18 @@
+BUILD_TYPE := debug
+PLATFORM := linux-x86
+OBJDIR := $(BUILD_TYPE)-$(PLATFORM)
+LOCAL_CFLAGS := -O0 -g -Wall -Werror -DDEBUG -DMOJ_LINUX -DMOJ_X86 -DMOJ_DEBUG -DBOOST_NO_TYPEID $(shell pkg-config --cflags glib-2.0)
+LOCAL_CPPFLAGS := $(CFLAGS)
+BEDLAM_ROOT ?= /opt/Palm/luna/desktop-binaries
+ARCH_LDFLAGS ?= -Wl,-rpath-link $(BEDLAM_ROOT)/lib
+LDFLAGS := -L../mojodb/debug-linux-x86 $(ARCH_LDFLAGS) -L$(BEDLAM_ROOT)/lib
+
+INCLUDES := \
+	-I$(BEDLAM_ROOT)/include \
+	-I$(BEDLAM_ROOT)/include/mojodb \
+	-I$(BEDLAM_ROOT)/include/boost-1_39 \
+	-I$(BEDLAM_ROOT)/include/libpurple \
+	-I./inc \
+	-I./glibcurl
+
+include Makefile.inc
