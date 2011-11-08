@@ -12,17 +12,20 @@
 		"com.palm.app.facebook",
 		"com.palm.app.facebook.beta",
 		"com.palm.app.enyo-facebook",
+        "com.palm.imlibpurple",
 		"com.palm.service.calendar.facebook",
 		"com.palm.service.contacts",
 		"com.palm.service.contacts.facebook",
 		"com.palm.service.contacts.linker",
 		"com.palm.service.photos",
 		"com.palm.service.photos.facebook",
+        "com.palm.app.messaging",
 		"com.palm.app.photos",
 		"com.palm.app.calendar",
 		"com.palm.app.contacts"
 		],
     "writePermissions": [
+        "com.palm.app.messaging",
 		"com.palm.app.facebook",
 		"com.palm.app.facebook.beta",
 		"com.palm.app.enyo-facebook",
@@ -61,6 +64,21 @@
 			"contact": "com.palm.contact.facebook:1"
 		}
 	},
+    {
+        "capability": "MESSAGING",
+        "capabilitySubtype": "IM",
+        "id": "com.palm.facebook.messaging",
+        "loc_shortName": "Facebook",
+        "implementation": "palm://com.palm.imlibpurple/",
+        "onEnabled": "palm://com.palm.imlibpurple/onEnabled",
+        "readOnlyData": true,
+        "serviceName": "type_jabber",
+        "chatWithNonBuddies": false,
+        "dbkinds": {
+            "immessage": "com.palm.immessage.libpurple:1",
+            "imcommand": "com.palm.imcommand.libpurple:1",
+        }
+    },
 	{
 		"capability": "PHOTO.UPLOAD",
 		"id": "com.palm.service.photos",
