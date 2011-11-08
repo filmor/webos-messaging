@@ -1,0 +1,51 @@
+#
+# Makefile.mingw
+#
+# Description: Makefile for win32 (mingw) version of Pidgin pixmaps
+#
+
+PIDGIN_TREE_TOP := ../..
+include $(PIDGIN_TREE_TOP)/libpurple/win32/global.mak
+
+datadir := $(PIDGIN_INSTALL_DIR)
+-include ./Makefile.am.mingw
+
+.PHONY: install clean
+
+install: ./Makefile.am.mingw
+	if test '$(SUBDIRS)'; then \
+	  list='$(SUBDIRS)'; for subdir in $$list; do \
+	    $(MAKE) -C $$subdir -f $(MINGW_MAKEFILE) install || exit 1 ;\
+	  done; \
+	fi;
+	if test '$(nobase_dist_pidginpixmap_DATA)'; then \
+	  list='$(nobase_dist_pidginpixmap_DATA)'; for file in $$list; do \
+	    dir=`dirname $$file`; \
+	    mkdir -p $(pidginpixmapdir)/$$dir; \
+	    cp $$file $(pidginpixmapdir)/$$dir/; \
+	  done; \
+	fi;
+	if test '$(pidginbuttonpix_DATA)'; then \
+	  mkdir -p $(pidginbuttonpixdir); \
+	  cp $(pidginbuttonpix_DATA) $(pidginbuttonpixdir); \
+	fi;
+	if test '$(pidgindistpix_DATA)'; then \
+	  mkdir -p $(pidgindistpixdir); \
+	  cp $(pidgindistpix_DATA) $(pidgindistpixdir); \
+	fi;
+
+clean: ./Makefile.am.mingw
+	if test '$(SUBDIRS)'; then \
+		list='$(SUBDIRS)'; for subdir in $$list; do \
+		$(MAKE) -C $$subdir -f $(MINGW_MAKEFILE) clean;\
+		done; \
+	fi;
+	rm -f ./Makefile.am.mingw
+
+./Makefile.am.mingw: ./Makefile.am ./Makefile.mingw
+	sed \
+		-e 's/^if\ INSTALL_PIXMAPS/ifeq (\$$(INSTALL_PIXMAPS), 1)/' \
+		-e 's/^if\ ENABLE_TRAYCOMPAT/ifeq (\$$(ENABLE_TRAYCOMPAT), 1)/' \
+		$< > $@
+        include $@
+
