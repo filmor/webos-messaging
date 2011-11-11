@@ -7,6 +7,7 @@ def options(opt):
     opt.load('compiler_c')
 
 def configure(conf):
+    # TODO: Create new config environment
     conf.load('compiler_c')
 
     conf.check_cfg(atleast_pkgconfig_version='0.1')
@@ -29,10 +30,11 @@ def configure(conf):
 #        execute = True,
 #        define_ret=True,
 #        msg = "Checking size of struct time_t")
+
     size = 4
 
-    conf.env.append_value("DEFINES", ["HAVE_CONFIG_H"])
-    conf.env.append_value("INCLUDES", ["."])
+    conf.env.append_value("DEFINES_PURPLE_BUILD", ["HAVE_CONFIG_H"])
+    conf.env.append_value("INCLUDES_PURPLE_BUILD", ["."])
 
     conf.define("VERSION", '2.10.0')
     conf.define("DATADIR", ".")
@@ -42,12 +44,13 @@ def configure(conf):
     conf.define("STATIC_PROTO_INIT", "", quote=False)
     conf.define("HAVE_CONFIG_H", 1, quote=False)
     conf.write_config_header('config.h')
+    conf.defines = {}
 
 def build(bld):
     paths = {
-                "core": ".",
-                "ciphers": "ciphers",
-                "media": "media"
+                "purple_core": ".",
+                "purple_ciphers": "ciphers",
+                "purple_media": "media"
             }
 
     for name, path in paths.iteritems():
@@ -55,6 +58,8 @@ def build(bld):
         bld.objects(
                 target=name,
                 source=source_files,
-                use="GLIB XML GNUTLS"
+                use="GLIB XML GNUTLS BASE PURPLE_BUILD"
                 )
+
+        bld.shlib(target='purple', source="", use=[i for i in paths] + ["BASE"])
 
