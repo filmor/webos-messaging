@@ -1,0 +1,60 @@
+from os.path import join
+
+VERSION="2.10.0"
+
+def options(opt):
+    # TODO: Options for different protocols
+    opt.load('compiler_c')
+
+def configure(conf):
+    conf.load('compiler_c')
+
+    conf.check_cfg(atleast_pkgconfig_version='0.1')
+    conf.check_cfg(package='glib-2.0', uselib_store='GLIB',
+                   args=['--cflags', '--libs'])
+    conf.check_cfg(package='libxml-2.0', uselib_store='XML',
+                   args=['--cflags', '--libs'])
+
+    conf.check_cfg(package='gnutls', uselib_store='GNUTLS')
+
+#    size = conf.check_cc(fragment='''
+#        #include <time.h>
+#        #include <stdio.h>
+#        int main()
+#        {
+#            printf("%d", sizeof(time_t));
+#            return 0;
+#        }
+#        ''',
+#        execute = True,
+#        define_ret=True,
+#        msg = "Checking size of struct time_t")
+    size = 4
+
+    conf.env.append_value("DEFINES", ["HAVE_CONFIG_H"])
+    conf.env.append_value("INCLUDES", ["."])
+
+    conf.define("VERSION", '2.10.0')
+    conf.define("DATADIR", ".")
+    conf.define("SYSCONFDIR", ".")
+    conf.define("LIBDIR", ".")
+    conf.define("SIZEOF_TIME_T", size, quote=False)
+    conf.define("STATIC_PROTO_INIT", "", quote=False)
+    conf.define("HAVE_CONFIG_H", 1, quote=False)
+    conf.write_config_header('config.h')
+
+def build(bld):
+    paths = {
+                "core": ".",
+                "ciphers": "ciphers",
+                "media": "media"
+            }
+
+    for name, path in paths.iteritems():
+        source_files = bld.path.ant_glob(join(path, "*.c") if path != "." else "*.c")
+        bld.objects(
+                target=name,
+                source=source_files,
+                use="GLIB XML GNUTLS"
+                )
+
