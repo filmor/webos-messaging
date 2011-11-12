@@ -11,8 +11,7 @@ def configure(conf):
     conf.load('compiler_c')
 
     conf.check_cfg(atleast_pkgconfig_version='0.1')
-    conf.check_cfg(package='glib-2.0', uselib_store='GLIB',
-                   args=['--cflags', '--libs'])
+
     conf.check_cfg(package='libxml-2.0', uselib_store='XML',
                    args=['--cflags', '--libs'])
 
@@ -53,13 +52,13 @@ def build(bld):
                 "purple_media": "media"
             }
 
+    source_files = []
     for name, path in paths.iteritems():
-        source_files = bld.path.ant_glob(join(path, "*.c") if path != "." else "*.c")
-        bld.objects(
-                target=name,
-                source=source_files,
-                use="GLIB XML GNUTLS BASE PURPLE_BUILD"
-                )
+        source_files += bld.path.ant_glob(join(path, "*.c") if path != "." else "*.c")
 
-        bld.shlib(target='purple', source="", use=[i for i in paths] + ["BASE"])
+    bld.shlib(
+                target="purple",
+                source=source_files,
+                use="GLIB XML GNUTLS BASE PURPLE_BUILD BASE"
+                )
 
