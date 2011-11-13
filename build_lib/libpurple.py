@@ -1,5 +1,6 @@
 from os.path import join
 from glob import glob
+from util import ant_glob
 
 # TODO: Get version from path
 VERSION="2.10.0"
@@ -9,6 +10,9 @@ def get_path():
         return glob("deps/pidgin-*/libpurple")[-1]
     except IndexError:
         raise RuntimeError("Couldn't find libpurple sources")
+
+def get_protocol_path(name):
+    return join(get_path(), "protocols", name)
 
 def options(opt):
     opt.load('compiler_c')
@@ -24,10 +28,13 @@ def configure(conf):
 
     conf.check_cfg(package='gnutls', uselib_store='GNUTLS')
 
-    conf.env.append_value("DEFINES_PURPLE_BUILD", ["HAVE_CONFIG_H"])
-    conf.env.append_value("INCLUDES_PURPLE_BUILD", ["libpurple_config"])
+    conf.env.append_value("DEFINES_PURPLE_BUILD", ["HAVE_CONFIG_H",
+                                                   "PURPLE_STATIC_PRPL"])
+    conf.env.append_value("INCLUDES_PURPLE_BUILD", ["libpurple_config",
+                                                    get_path()])
     
     conf.define("VERSION", VERSION)
+    conf.define("DISPLAY_VERSION", VERSION)
     conf.define("DATADIR", ".")
     conf.define("SYSCONFDIR", ".")
     conf.define("LIBDIR", ".")
@@ -48,21 +55,13 @@ def build(bld):
                "win32",
                "tests"]
 
-    import waflib
-    saved_exclude_regs = waflib.Node.exclude_regs
-
-    for i in exclude:
-        waflib.Node.exclude_regs += "\n**/" + i
-
-    source_files = bld.path.ant_glob(join(get_path(), "**/*.c"))
-
-    waflib.Node.exclude_regs = saved_exclude_regs
+    use = " ".join(["GLIB XML GNUTLS PURPLE_BUILD BASE"] + bld.env.PROTOCOLS)
 
     bld.shlib(
                 target="purple",
-                source=source_files,
+                source=ant_glob(bld, get_path(), "**", "*.c", exclude=exclude),
                 export_includes=get_path(),
                 includes=get_path(),
-                use="GLIB XML GNUTLS PURPLE_BUILD BASE"
+                use=use,
                 )
 
