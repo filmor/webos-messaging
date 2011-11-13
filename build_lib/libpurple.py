@@ -15,9 +15,6 @@ def get_path():
 def get_protocol_path(name):
     return join(get_path(), "protocols", name)
 
-def get_plugins_path():
-    return join(get_path(), plugins)
-
 
 def configure(conf):
     # TODO: Create new config environment
@@ -56,7 +53,8 @@ def build(bld):
                "win32",
                "tests"]
 
-    use = " ".join(["GLIB XML GNUTLS PURPLE_BUILD BASE purple_plugins"]
+    use = " ".join(["GLIB XML GNUTLS PURPLE_BUILD BASE purple_plugins \
+                     ssl_plugins"]
                    + bld.env.PROTOCOLS)
 
     bld.shlib(
@@ -65,5 +63,5 @@ def build(bld):
                 export_includes=get_path(),
                 includes=get_path(),
                 use=use,
-                )
+             )
 
