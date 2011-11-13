@@ -1,9 +1,17 @@
-from os.path import join, basename
+from os.path import join, basename, splitext
+from os import chdir
+from glob import glob
+import waflib
 
 VERSION='0.1'
 APPNAME='messaging-plugins'
 
-PDK_PATH="/opt/PalmPDK"
+modules = {}
+
+modules.update(
+                (splitext(basename(i))[0], waflib.Context.load_module(i))
+                for i in glob("build_lib/*.py")
+              )
 
 PURPLE_PATH="libpurple-2.10.0"
 
@@ -19,7 +27,8 @@ palm_programs = [
 
 def do_recurse(f):
     def new_f(ctx):
-        ctx.recurse(subpaths, mandatory=False)
+        for m in modules.values():
+            m.__dict__.get(f.__name__, lambda x:None)(ctx)
         return f(ctx)
     new_f.__name__ = f.__name__
     return new_f
