@@ -28,23 +28,21 @@
 
 #include "core/MojService.h"
 #include "db/MojDbServiceClient.h"
-#include "IMServiceApp.h"
+#include "LibpurpleAdapter.h"
 
 class OnEnabledHandler : public MojSignalHandler
 {
 public:
 
-	OnEnabledHandler(MojService* service, IMServiceApp::Listener* listener);
+	OnEnabledHandler(MojService* service);
 	~OnEnabledHandler();
 
 	MojErr start(const MojObject& payload);
+	static void assignIMServiceHandler(IMServiceCallbackInterface* incomingIMHandler);
 
 private:
 	MojDbClient::Signal::Slot<OnEnabledHandler> m_getAccountInfoSlot;
 	MojErr getAccountInfoResult(MojObject& payload, MojErr err);
-
-	MojDbClient::Signal::Slot<OnEnabledHandler> m_findImLoginStateSlot;
-	MojErr findImLoginStateResult(MojObject& payload, MojErr err);
 
 	MojDbClient::Signal::Slot<OnEnabledHandler> m_addImLoginStateSlot;
 	MojErr addImLoginStateResult(MojObject& payload, MojErr err);
@@ -64,8 +62,8 @@ private:
 	MojDbClient::Signal::Slot<OnEnabledHandler> m_deleteImBuddyStatusSlot;
 	MojErr deleteImBuddyStatusResult(MojObject& payload, MojErr err);
 
-	MojErr accountEnabled();
-	MojErr accountDisabled();
+	MojErr accountEnabled(const MojString& accountId, const MojString& serviceName, const MojString& username);
+	MojErr accountDisabled(const MojString& accountId, const MojString& serviceName, const MojString& username);
 	MojErr getMessagingCapabilityObject(const MojObject& capabilityProviders, MojObject& messagingObj);
 	MojErr getDefaultServiceName(const MojObject& accountResult, MojString& serviceName);
 	void getServiceNameFromCapabilityId(MojString& serviceName);
@@ -75,13 +73,6 @@ private:
 	MojDbServiceClient m_tempdbClient;
 	bool m_enable;
 	MojString m_capabilityProviderId;
-	MojString m_accountId;
-	MojString m_username;
-	MojString m_serviceName;
-
-
-	// listener to tell when we are ready to shutdown
-	IMServiceApp::Listener* m_listener;
 };
 
 #endif /* _ONENABLEDHANDLER_H_ */

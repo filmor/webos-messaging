@@ -27,18 +27,17 @@
 #ifndef IMSERVICEHANDLER_H_
 #define IMSERVICEHANDLER_H_
 
+#include "LibpurpleAdapter.h"
 #include "core/MojService.h"
 #include "core/MojServiceMessage.h"
 #include "db/MojDbServiceClient.h"
 #include "IMLoginState.h"
 #include "ConnectionStateHandler.h"
-#include "IMServiceApp.h"
-#include "DisplayController.h"
+#include "IncomingIMHandler.h"
 
-class IMServiceHandler : public MojService::CategoryHandler, public IMServiceCallbackInterface, public IMServiceApp::Listener
+class IMServiceHandler : public MojService::CategoryHandler, public IMServiceCallbackInterface
 {
-public:
-
+public:	
 	static const int SERVICE_CRASHED_ERROR_CODE = -1;
 
 	IMServiceHandler(MojService* service);
@@ -55,15 +54,11 @@ public:
 	static MojErr logMojObjectJsonString(const MojChar* format, const MojObject mojObject);
 	// strip message body to protect private data
 	static MojErr privatelogIMMessage(const MojChar* format, MojObject mojObject, const MojChar* messageTextKey);
-
-	// called by each signal handler when they start and stop processing so we know when to shut down
-	void ProcessStarting();
-	void ProcessDone();
-
+	
+	// Loads preferences
+	virtual MojErr LoadAccountPreferences(const char* templateId, const char* UserName);
+	MojErr loadpreferences(MojServiceMessage* serviceMsg, const MojObject payload);
 private:
-	static const MojInt64 SHUTDOWN_DELAY_SECONDS = 30; // number of seconds to wait before shutting down
-	static const Method s_methods[];
-	static const char* const COM_PALM_MESSAGING_KIND;
 
 	// Pointer to the service used for creating/sending requests.
 	MojService*	m_service;
@@ -73,13 +68,6 @@ private:
 
 	IMLoginState* m_loginState;
 	ConnectionState m_connectionState;
-	DisplayController* m_displayController;
-
-	// count of active processes (signal handlers)
-	MojInt64 m_activeProcesses;
-
-	// shutdown timer active
-	MojInt64 m_shutdownCallbackId;
 
 	MojErr onEnabled(MojServiceMessage* serviceMsg, const MojObject payload);
 
@@ -92,11 +80,8 @@ private:
 	// Kicks off the send command process. Queries DB for outgoing commands and sends them.
 	MojErr IMSendCmd(MojServiceMessage* msg, const MojObject payload);
 
-	// can we shut down?
-	bool OkToShutdown();
-
-	// GLib Main Event Loop callback to shutdown the process.
-	static gboolean ShutdownCallback(void* data);
+	static const Method s_methods[];
+	static const char* const COM_PALM_MESSAGING_KIND;
 
 };
 

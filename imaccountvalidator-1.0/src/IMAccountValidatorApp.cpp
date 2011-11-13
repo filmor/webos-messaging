@@ -50,8 +50,11 @@
 #include "core.h"
 #include "debug.h"
 
-const char* const IMAccountValidatorApp::ServiceName = _T("com.palm.imaccountvalidator");
-MojLogger IMAccountValidatorApp::s_log(_T("imaccountvalidator"));
+const char* const IMAccountValidatorApp::ServiceName = _T("org.webosinternals.imaccountvalidator");
+MojLogger IMAccountValidatorApp::s_log(_T("org.webosinternals.imaccountvalidator"));
+
+#define CUSTOM_USER_DIRECTORY  "/var/preferences/org.webosinternals.messaging"
+#define CUSTOM_PLUGIN_PATH     "/media/cryptofs/apps/usr/palm/applications/org.webosinternals.messaging/plugins"
 
 /**
  * The following eventloop functions are used in both pidgin and purple-text. If your
@@ -257,6 +260,9 @@ MojErr IMAccountValidatorApp::initializeLibPurple() {
 	 */
 	signal(SIGCHLD, SIG_IGN);
 
+	/* Set a custom user directory (optional) */
+	purple_util_set_user_dir(CUSTOM_USER_DIRECTORY);
+
 	/* turn on debugging. Turn off to keep the noise to a minimum. */
 	purple_debug_set_enabled(TRUE);
 
@@ -267,6 +273,11 @@ MojErr IMAccountValidatorApp::initializeLibPurple() {
 	   *    - uninitialize the ui components for all the modules when the core terminates.
 	   */
 	purple_core_set_ui_ops(&null_core_uiops);
+
+	/* Set path to search for plugins. The core (libpurple) takes care of loading the
+	* core-plugins, which includes the protocol-plugins. So it is not essential to add
+	* any path here, but it might be desired, especially for ui-specific plugins. */
+	purple_plugins_add_search_path(CUSTOM_PLUGIN_PATH);
 
 	/* Set the uiops for the eventloop. If your client is glib-based, you can safely
 	 * copy this verbatim. */

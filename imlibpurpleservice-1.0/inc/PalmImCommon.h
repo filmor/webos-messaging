@@ -32,18 +32,39 @@
 #define LOGIN_STATE_ONLINE   			"online"
 #define LOGIN_STATE_LOGGING_OFF  		"logging-off"
 
-
 #define SERVICENAME_AIM "type_aim"
+#define SERVICENAME_FACEBOOK "type_facebook"
 #define SERVICENAME_GTALK "type_gtalk"
+#define SERVICENAME_GADU "type_gadu"
+#define SERVICENAME_GROUPWISE "type_groupwise"
 #define SERVICENAME_ICQ "type_icq"
+#define SERVICENAME_JABBER "type_jabber"
+#define SERVICENAME_LIVE "type_live"
+#define SERVICENAME_WLM "type_wlm"
+#define SERVICENAME_MYSPACE "type_myspace"
+#define SERVICENAME_QQ "type_qq"
+#define SERVICENAME_SAMETIME "type_sametime"
+#define SERVICENAME_SIPE "type_sipe"
+#define SERVICENAME_XFIRE "type_xfire"
 #define SERVICENAME_YAHOO "type_yahoo"
 #define SERVICENAME_SKYPE "type_skype"
-#define SERVICENAME_WINOWSLIVE "type_msn"
 
 // capability providor ids
-#define CAPABILITY_GTALK "com.palm.google.talk"
-#define CAPABILITY_AIM "com.palm.aol.aim"
-
+#define CAPABILITY_AIM "org.webosinternals.messaging.aol.aim"
+#define CAPABILITY_FACEBOOK "org.webosinternals.messaging.facebook"
+#define CAPABILITY_GTALK "org.webosinternals.messaging.google.talk"
+#define CAPABILITY_GADU "org.webosinternals.messaging.gadu"
+#define CAPABILITY_GROUPWISE "org.webosinternals.messaging.groupwise"
+#define CAPABILITY_ICQ "org.webosinternals.messaging.icq"
+#define CAPABILITY_JABBER "org.webosinternals.messaging.jabber"
+#define CAPABILITY_LIVE "org.webosinternals.messaging.live"
+#define CAPABILITY_WLM "org.webosinternals.messaging.wlm"
+#define CAPABILITY_MYSPACE "org.webosinternals.messaging.myspace"
+#define CAPABILITY_QQ "org.webosinternals.messaging.qq"
+#define CAPABILITY_SAMETIME "org.webosinternals.messaging.sametime"
+#define CAPABILITY_SIPE "org.webosinternals.messaging.sipe"
+#define CAPABILITY_XFIRE "org.webosinternals.messaging.xfire"
+#define CAPABILITY_YAHOO "org.webosinternals.messaging.yahoo"
 
 typedef struct
 {
@@ -84,12 +105,10 @@ public:
 #define ERROR_ACCOUNT_LOCKED        "AcctMgr_Account_Locked"
 #define ERROR_SINGLE_ACCOUNT_ONLY   "AcctMgr_Single_Account_Only"
 #define ERROR_GENERIC_ERROR         "AcctMgr_Generic_Error"
-#define ERROR_CREDENTIALS_NOT_FOUND "AcctMgr_Credentials_Not_Found"
 
 // account service errors
 #define ACCOUNT_ERROR_UNKNOWN 	  "ERROR_UNKNOWN"
 #define ACCOUNT_401_UNAUTHORIZED  "401_UNAUTHORIZED"
 #define ACCOUNT_500_SERVER_ERROR  "500_SERVER_ERROR"
-#define ACCOUNT_CREDENTIALS_NOT_FOUND  "CREDENTIALS_NOT_FOUND"
 
 #endif /* PALMIMCOMMON_H_ */

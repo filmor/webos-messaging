@@ -27,9 +27,21 @@
 
 #define IMVersionString  "IMAccountValidator 6-8 1pm starting...."
 
+MojString ServerName;
+MojString ServerPort;
+bool ServerTLS = false;
+MojString XFireversion;
+bool SIPEServerProxy = FALSE;
+MojString SIPEUserAgent;
+MojString SIPEServerLogin;
+bool SametimehideID = FALSE;
+MojString JabberResource;
+bool BadCert = false;
+
 const IMAccountValidatorHandler::Method IMAccountValidatorHandler::s_methods[] = {
 	{_T("checkCredentials"), (Callback) &IMAccountValidatorHandler::validateAccount},
 	{_T("logout"), (Callback) &IMAccountValidatorHandler::logout},
+	{_T("setpreferences"), (Callback) &IMAccountValidatorHandler::setpreferences},
 	{NULL, NULL} };
 
 
@@ -47,6 +59,97 @@ IMAccountValidatorHandler::~IMAccountValidatorHandler()
 {
 	MojLogTrace(IMAccountValidatorApp::s_log);
 
+}
+
+/*
+ * Set preferences for account we are logging in to
+ *
+ */
+MojErr IMAccountValidatorHandler::setpreferences(MojServiceMessage* serviceMsg, const MojObject payload)
+{
+	//Load server and port
+	MojString errorText;
+	bool found = false;
+	bool result = true;
+	MojString templateId;
+
+	//Get templateId
+	MojErr err = payload.get(_T("templateId"), templateId, found);
+	if (!found) {
+		errorText.assign(_T("Missing templateId in payload."));
+		result = false;
+	}
+	//Get server name
+	err = payload.get(_T("ServerName"), ServerName, found);
+	if (!found) {
+		errorText.assign(_T("Missing ServerName in payload."));
+		result = false;
+	}
+	//Get server port
+	err = payload.get(_T("ServerPort"), ServerPort, found);
+	//Accept Bad Cert?
+	found = payload.get(_T("BadCert"), BadCert);
+	if (!found) {
+			BadCert = false;
+	}
+	//Get server TLS
+	found = payload.get(_T("ServerTLS"), ServerTLS);
+	if (!found) {
+			ServerTLS = false;
+	}
+	//Get XFire version
+	if (0 == templateId.compare(TEMPLATE_XFIRE))
+	{
+		err = payload.get(_T("XFireversion"), XFireversion, found);
+		if (!found) {
+			errorText.assign(_T("Missing XFireversion in payload."));
+			result = false;
+		}
+	}
+	//Get SIPE settings
+	if (0 == templateId.compare(TEMPLATE_SIPE))
+	{
+		//Get SIPE UserAgent
+		err = payload.get(_T("SIPEUserAgent"), SIPEUserAgent, found);
+		if (!found) {
+			SIPEUserAgent.assign("");
+		}
+		//Get SIPE Login
+		err = payload.get(_T("SIPEServerLogin"), SIPEServerLogin, found);
+		if (!found) {
+			SIPEServerLogin.assign("");
+		}
+		//Get SIPE Server Proxy
+		found = payload.get(_T("SIPEServerProxy"), SIPEServerProxy);
+		if (!found) {
+			SIPEServerProxy = false;
+		}
+	}
+	//Get Sametime hideID pref
+	if (0 == templateId.compare(TEMPLATE_SAMETIME))
+	{
+		found = payload.get(_T("SametimehideID"), SametimehideID);
+		if (!found) {
+			SametimehideID = false;
+		}
+	}
+	//Get jabber resource
+	if (0 == templateId.compare(TEMPLATE_JABBER))
+	{
+		err = payload.get(_T("JabberResource"), JabberResource, found);
+		if (!found) {
+			JabberResource.assign("");
+		}
+	}
+	
+	if (!result) {
+		serviceMsg->replyError(err, errorText);
+		return MojErrNone;
+	}
+	
+	//Return success
+	serviceMsg->replySuccess();
+	return MojErrNone;
 }
 
 /*
@@ -75,6 +178,105 @@ MojErr IMAccountValidatorHandler::init(IMAccountValidatorApp* const app)
 	m_clientApp = app;
 
 	return MojErrNone;
+}
+
+void IMAccountValidatorHandler::setaccountprefs(MojString templateId, PurpleAccount* account)
+{
+	//Set account preferences
+	purple_account_set_string(account, "server", ServerName);
+	purple_account_set_string(account, "connect_server", ServerName);
+	if (0 == templateId.compare(TEMPLATE_GADU))
+	{
+		//Set connect server
+		purple_account_set_string(account, "gg_server", ServerName);
+		purple_account_set_int(account, "server_port", atoi(ServerPort));
+	}	
+	purple_account_set_int(account, "port", atoi(ServerPort));
+	purple_account_set_bool(account, "require_tls", ServerTLS);
+	
+	//Bad Cert Accept?
+	purple_prefs_remove("/purple/acceptbadcert");
+	if (BadCert)
+	{
+		MojLogError(IMAccountValidatorApp::s_log, "Accepting Bad Certificates");
+		purple_prefs_add_string("/purple/acceptbadcert", "true");
+	}
+	if (ServerTLS)
+	{
+		purple_account_set_string(account, "transport", "tls");
+	}
+	else
+	{
+		purple_account_set_string(account, "transport", "auto");
+	}
+	if (0 == templateId.compare(TEMPLATE_QQ))
+	{
+		purple_account_set_string(account, "client_version", "qq2008");
+		
+		//Set server in servername:port format for QQ
+		char *qqServer = NULL;
+		qqServer = (char *)calloc(strlen(ServerName) + strlen(ServerPort) + 1, sizeof(char));
+		strcat(qqServer, ServerName);
+		strcat(qqServer, ":");
+		strcat(qqServer, ServerPort);
+		purple_account_set_string(account, "server", qqServer);
+	}
+	if (0 == templateId.compare(TEMPLATE_FACEBOOK))
+	{
+		//Don't load chat history
+		purple_account_set_bool(account, "facebook_show_history", FALSE);
+	}
+	if (0 == templateId.compare(TEMPLATE_XFIRE))
+	{
+		purple_account_set_int(account, "version", atoi(XFireversion));
+	}
+		
+	if (0 == templateId.compare(TEMPLATE_SIPE))
+	{
+		//Set ServerName
+		if(strcmp(ServerName, "") != 0) 
+		{
+			char *SIPEFullServerName = NULL;
+			SIPEFullServerName = (char *)calloc(strlen(ServerName) + strlen(ServerPort) + 1, sizeof(char));
+			strcat(SIPEFullServerName, ServerName);
+			strcat(SIPEFullServerName, ":");
+			strcat(SIPEFullServerName, ServerPort);
+			purple_account_set_string(account, "server", SIPEFullServerName);
+
+			if (SIPEFullServerName)
+			{
+				free(SIPEFullServerName);
+			}
+		}
+
+		//Proxy?
+		if (!SIPEServerProxy)
+		{
+			//Disable Proxy
+			PurpleProxyInfo *info = purple_proxy_info_new();
+			purple_proxy_info_set_type(info, PURPLE_PROXY_NONE);
+		}
+
+		//User Agent
+		if(strcmp(SIPEUserAgent, "") != 0) 
+		{
+			purple_account_set_string(account, "useragent", SIPEUserAgent);
+		}
+	}
+	if (0 == templateId.compare(TEMPLATE_SAMETIME))
+	{
+		purple_account_set_bool(account, "fake_client_id", SametimehideID);
+	}
+	if (0 == templateId.compare(TEMPLATE_JABBER))
+	{
+		//Set Account Alias to gtalk
+		purple_account_set_alias (account,"jabber");
+	}
+	if (0 == templateId.compare(TEMPLATE_GTALK))
+	{
+		//Set Account Alias to gtalk
+		purple_account_set_alias (account,"gtalk");
+	}
 }
 
 /*
@@ -142,11 +344,37 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 				result = false;
 			}
 			else {
-				// figure out which service we are validating from templateID - "com.palm.aol" or "com.palm.icq"
+				// figure out which service we are validating from templateID
 				if (0 == templateId.compare(TEMPLATE_AIM))
 					prplProtocolId = strdup(PURPLE_AIM);
+				else if (0 == templateId.compare(TEMPLATE_FACEBOOK))
+					prplProtocolId = strdup(PURPLE_FACEBOOK);
+				else if (0 == templateId.compare(TEMPLATE_GTALK))
+					prplProtocolId = strdup(PURPLE_GTALK);
+				else if (0 == templateId.compare(TEMPLATE_GADU))
+					prplProtocolId = strdup(PURPLE_GADU);
+				else if (0 == templateId.compare(TEMPLATE_GROUPWISE))
+					prplProtocolId = strdup(PURPLE_GROUPWISE);
 				else if (0 == templateId.compare(TEMPLATE_ICQ))
 					prplProtocolId = strdup(PURPLE_ICQ);
+				else if (0 == templateId.compare(TEMPLATE_JABBER))
+					prplProtocolId = strdup(PURPLE_JABBER);
+				else if (0 == templateId.compare(TEMPLATE_LIVE))
+					prplProtocolId = strdup(PURPLE_LIVE);
+				else if (0 == templateId.compare(TEMPLATE_WLM))
+					prplProtocolId = strdup(PURPLE_WLM);
+				else if (0 == templateId.compare(TEMPLATE_MYSPACE))
+					prplProtocolId = strdup(PURPLE_MYSPACE);
+				else if (0 == templateId.compare(TEMPLATE_QQ))
+					prplProtocolId = strdup(PURPLE_QQ);
+				else if (0 == templateId.compare(TEMPLATE_SAMETIME))
+					prplProtocolId = strdup(PURPLE_SAMETIME);
+				else if (0 == templateId.compare(TEMPLATE_SIPE))
+					prplProtocolId = strdup(PURPLE_SIPE);
+				else if (0 == templateId.compare(TEMPLATE_XFIRE))
+					prplProtocolId = strdup(PURPLE_XFIRE);
+				else if (0 == templateId.compare(TEMPLATE_YAHOO))
+					prplProtocolId = strdup(PURPLE_YAHOO);
 				else {
 					errorText.assign(_T("Invalid templateId in payload."));
 					result = false;
@@ -154,6 +382,8 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 			}
 		}
 	}
+	
+	MojLogError(IMAccountValidatorApp::s_log, "ID's %s:%s", prplProtocolId, templateId.data());
 
 	if (!result) {
 		returnValidateFailed(MojErrInvalidArg, errorText);
@@ -177,6 +407,9 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 		result = false;
 	}
 	else {
+		//Set account preferences
+		setaccountprefs(templateId, m_account);
+
 		purple_account_set_password(m_account, m_password.data());
 		/* It's necessary to enable the account first. */
 		purple_account_set_enabled(m_account, UI_ID, TRUE);
@@ -185,7 +418,7 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 	   status = purple_savedstatus_new(NULL, PURPLE_STATUS_INVISIBLE);
 	   purple_savedstatus_activate(status);
 	}
-
+	
 	free(transportFriendlyUserName);
 	free(prplProtocolId);
 
@@ -228,11 +461,55 @@ MojChar* IMAccountValidatorHandler::getPrplFriendlyUsername(const MojChar* servi
 			strtok(transportFriendlyUsername, "@");
 		}
 	}
-	else if (strcmp(serviceName, PURPLE_ICQ) == 0)
+	//Special Case for Office Communicator when DOMAIN\USER is set. Account name is USERNAME,DOMAIN\USER
+	if (strcmp(serviceName, PURPLE_SIPE) == 0 && strcmp(SIPEServerLogin, "") != 0)
 	{
-		if (strstr(username, "@icq.com") != NULL)
+		if (strstr(username, ",") != NULL)
 		{
-			strtok(transportFriendlyUsername, "@");
+			//A "," exists in the sign in name already
+			//transportFriendlyUsername = malloc(strlen(username) + 1);
+			transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+			return transportFriendlyUsername;
+		}
+		else
+		{
+			//transportFriendlyUsername = malloc(strlen(username) + 1);
+			transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+
+			//SIPE Account
+			char *SIPEFullLoginName = NULL;
+			SIPEFullLoginName = (char *)calloc(strlen(transportFriendlyUsername) + strlen(SIPEServerLogin) + 2, sizeof(char));
+			strcat(SIPEFullLoginName, transportFriendlyUsername);
+			strcat(SIPEFullLoginName, ",");
+			strcat(SIPEFullLoginName, SIPEServerLogin);
+
+			return SIPEFullLoginName;
+		}
+	}
+	//Special Case for jabber when resource is set. Account name is USERNAME/RESOURCE
+	if (strcmp(serviceName, PURPLE_JABBER) == 0 && strcmp(JabberResource, "") != 0)
+	{
+		if (strstr(username, "/") != NULL)
+		{
+			//A "/" exists in the sign in name already
+			//transportFriendlyUsername = malloc(strlen(username) + 1);
+			transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+
+			return transportFriendlyUsername;
+		}
+		else
+		{
+			//transportFriendlyUsername = malloc(strlen(username) + 1);
+			transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+
+			//Jabber Account
+			char *JabberFullLoginName = NULL;
+			JabberFullLoginName = (char *)calloc(strlen(transportFriendlyUsername) + strlen(JabberResource) + 2, sizeof(char));
+			strcat(JabberFullLoginName, transportFriendlyUsername);
+			strcat(JabberFullLoginName, "/");
+			strcat(JabberFullLoginName, JabberResource);
+
+			return JabberFullLoginName;
 		}
 	}
 	return transportFriendlyUsername;
@@ -248,18 +525,60 @@ MojErr IMAccountValidatorHandler::getMojoFriendlyUsername(const char* serviceNam
 	{
 		return MojErrInvalidArg;
 	}
-
+	GString *newusername = g_string_new(username);
+	
 	if (strcmp(serviceName, PURPLE_AIM) == 0 && strchr(username, '@') == NULL)
 	{
 		m_mojoUsername.assign(username);
 		m_mojoUsername.append("@aol.com");
 		MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
 	}
-	else if (strcmp(serviceName, PURPLE_ICQ) == 0 && strchr(username, '@') == NULL)
+	else if (strcmp(serviceName, PURPLE_YAHOO) == 0 && strchr(username, '@') == NULL)
 	{
-		m_mojoUsername.assign(username);
-		m_mojoUsername.append("@icq.com");
+		g_string_append(newusername, "@yahoo.com");
+		
+		m_mojoUsername.assign(newusername->str);
 		MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
+	}
+	else if (strcmp(serviceName, PURPLE_GTALK) == 0)
+	{
+		char* resource = (char*)memchr(username, '/', strlen(username));
+		if (resource != NULL)
+		{
+			int charsToKeep = resource - username;
+			g_string_erase(newusername, charsToKeep, -1);
+			
+			m_mojoUsername.assign(newusername->str);
+			MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
+		}
+	}
+	else if (strcmp(serviceName, PURPLE_JABBER) == 0)
+	{
+		if (strcmp(JabberResource, "") != 0)
+		{
+			//If jabber resource is blank remove /
+			char *resource = (char*)memchr(username, '/', strlen(username));
+			if (resource != NULL)
+			{
+				int charsToKeep = resource - username;
+				g_string_erase(newusername, charsToKeep, -1);
+				
+				m_mojoUsername.assign(newusername->str);
+				MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
+			}
+		}
+	}
+	else if (strcmp(serviceName, PURPLE_SIPE) == 0)
+	{
+		char *resource = (char*)memchr(username, ',', strlen(username));
+		if (resource != NULL)
+		{
+			int charsToKeep = resource - username;
+			g_string_erase(newusername, charsToKeep, -1);
+			
+			m_mojoUsername.assign(newusername->str);
+			MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
+		}
 	}
 
 	return MojErrNone;
@@ -295,7 +614,7 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	m_password.clear();
 
 	// clean up - need to send a logout message to ourselves
-	// luna-send -n 1 palm://com.palm.imaccountvalidator/logout '{}'
+	// luna-send -n 1 palm://org.webosinternals.imaccountvalidator/logout '{}'
 
 	// log the send
 	MojLogInfo(IMAccountValidatorApp::s_log, "Issuing logout request to imaccountvalidator");
@@ -308,7 +627,7 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	MojObject params;
 
 	if (!err)
-		err = req->send(m_logoutSlot, "com.palm.imaccountvalidator", "logout", params);
+		err = req->send(m_logoutSlot, "org.webosinternals.imaccountvalidator", "logout", params);
 	if (err) {
 		MojString error;
 		MojErrToString(err, error);

@@ -59,19 +59,21 @@
 #include <stdlib.h>
 
 #include "LibpurpleAdapter.h"
+#include "LibpurpleAdapterPrefs.h"
 #include "PalmImCommon.h"
-
-//#include <cjson/json.h>
-//#include <lunaservice.h>
-//#include <json_utils.h>
+#include "luna/MojLunaService.h"
 #include "IMServiceApp.h"
+#include "db/MojDbQuery.h"
 
 static const guint PURPLE_GLIB_READ_COND  = (G_IO_IN | G_IO_HUP | G_IO_ERR);
 static const guint PURPLE_GLIB_WRITE_COND = (G_IO_OUT | G_IO_HUP | G_IO_ERR | G_IO_NVAL);
-static const guint CONNECT_TIMEOUT_SECONDS = 45;
+//static const guint CONNECT_TIMEOUT_SECONDS = 45; Moved to preferences
+//static const guint BUDDY_LIST_REFRESH = 10; Moved to preferences
 
 static LoginCallbackInterface* s_loginState = NULL;
 static IMServiceCallbackInterface* s_imServiceHandler = NULL;
+static LibpurplePrefsHandler* s_PrefsHandler = NULL;
+
 /**
  * List of accounts that are online
  */
@@ -82,11 +84,9 @@ static GHashTable* s_onlineAccountData = NULL;
 static GHashTable* s_pendingAccountData = NULL;
 static GHashTable* s_offlineAccountData = NULL;
 static GHashTable* s_accountLoginTimers = NULL;
-
-// TODO - this does not seem to be used anymore...
 static GHashTable* s_connectionTypeData = NULL;
-
 static GHashTable* s_AccountIdsData = NULL;
+static GHashTable* s_accountBuddyListTimers = NULL;
 
 /*
  * list of pending authorization requests
@@ -301,6 +301,108 @@ guint adapterIOAdd(gint fd, PurpleInputCondition purpleCondition, PurpleInputFun
  * Helper methods 
  */
 
+ /*
+ * The messaging service expects the username to be in the username@domain.com format, whereas the AIM prpl uses the username only
+ * Free the returned string when you're done with it 
+ */
+static char* getMojoFriendlyUsername(const char* username, const char* serviceName)
+{
+	if (!username || !serviceName)
+	{
+		return strdup("");
+	}
+	GString* mojoFriendlyUsername = g_string_new(username);
+	if (strcmp(serviceName, SERVICENAME_AIM) == 0 && strchr(username, '@') == NULL)
+	{
+		g_string_append(mojoFriendlyUsername, "@aol.com");
+	}
+	else if (strcmp(serviceName, SERVICENAME_GTALK) == 0)
+	{
+		char* resource = (char*)memchr(username, '/', strlen(username));
+		if (resource != NULL)
+		{
+			int charsToKeep = resource - username;
+			g_string_erase(mojoFriendlyUsername, charsToKeep, -1);
+		}
+	}
+	else if (strcmp(serviceName, SERVICENAME_JABBER) == 0)
+	{
+		if (strstr(username, "/") != NULL)
+		{
+			//If jabber resource is blank remove /
+			char *resource = (char*)memchr(username, '/', strlen(username));
+			if (resource != NULL)
+			{
+				int charsToKeep = resource - username;
+				g_string_erase(mojoFriendlyUsername, charsToKeep, -1);
+			}
+		}
+	}
+	else if (strcmp(serviceName, SERVICENAME_SIPE) == 0)
+	{
+		char *resource = (char*)memchr(username, ',', strlen(username));
+		if (resource != NULL)
+		{
+			int charsToKeep = resource - username;
+			g_string_erase(mojoFriendlyUsername, charsToKeep, -1);
+		}
+	}
+	char* mojoFriendlyUsernameToReturn = strdup(mojoFriendlyUsername->str);
+	g_string_free(mojoFriendlyUsername, TRUE);
+	return mojoFriendlyUsernameToReturn;
+}
+
+static char* getMojoFriendlyTemplateID (char* serviceName)
+{
+	if (strcmp(serviceName, SERVICENAME_AIM) == 0) {
+		return (char*)CAPABILITY_AIM;
+	}
+	else if (strcmp(serviceName, SERVICENAME_FACEBOOK) == 0){
+		return (char*)CAPABILITY_FACEBOOK;
+	}
+	else if (strcmp(serviceName, SERVICENAME_GTALK) == 0){
+		return (char*)CAPABILITY_GTALK;
+	}
+	else if (strcmp(serviceName, SERVICENAME_GADU) == 0){
+		return (char*)CAPABILITY_GADU;
+	}
+	else if (strcmp(serviceName, SERVICENAME_GROUPWISE) == 0){
+		return (char*)CAPABILITY_GROUPWISE;
+	}
+	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0){
+		return (char*)CAPABILITY_ICQ;
+	}
+	else if (strcmp(serviceName, SERVICENAME_JABBER) == 0){
+		return (char*)CAPABILITY_JABBER;
+	}
+	else if (strcmp(serviceName, SERVICENAME_LIVE) == 0){
+		return (char*)CAPABILITY_LIVE;
+	}
+	else if (strcmp(serviceName, SERVICENAME_WLM) == 0){
+		return (char*)CAPABILITY_WLM;
+	}
+	else if (strcmp(serviceName, SERVICENAME_MYSPACE) == 0){
+		return (char*)CAPABILITY_MYSPACE;
+	}
+	else if (strcmp(serviceName, SERVICENAME_QQ) == 0){
+		return (char*)CAPABILITY_QQ;
+	}
+	else if (strcmp(serviceName, SERVICENAME_SAMETIME) == 0){
+		return (char*)CAPABILITY_SAMETIME;
+	}
+	else if (strcmp(serviceName, SERVICENAME_SIPE) == 0){
+		return (char*)CAPABILITY_SIPE;
+	}
+	else if (strcmp(serviceName, SERVICENAME_XFIRE) == 0){
+		return (char*)CAPABILITY_XFIRE;
+	}
+	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0){
+		return (char*)CAPABILITY_YAHOO;
+	}
+	
+	return (char*)"";
+}
+
 /*
  * This method handles special cases where the username passed by the mojo side does not satisfy a particular prpl's requirement
  * (e.g. for logging into AIM, the mojo service uses "palmpre@aol.com", yet the aim prpl expects "palmpre"; same scenario with yahoo)
@@ -323,59 +425,73 @@ static char* getPrplFriendlyUsername(const char* serviceName, const char* userna
 			strtok(transportFriendlyUsername, "@");
 		}
 	}
-	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0)
+	
+	const char* SIPEServerLogin;
+	const char* JabberResource;
+	char* templateId = getMojoFriendlyTemplateID((char*)serviceName);
+
+	//Special Case for Office Communicator when DOMAIN\USER is set. Account name is USERNAME,DOMAIN\USER
+	if (strcmp(serviceName, SERVICENAME_SIPE) == 0)
 	{
-		if (strstr(username, "@yahoo.com") != NULL)
+		if (strstr(username, ",") != NULL)
 		{
-			strtok(transportFriendlyUsername, "@");
+			//A "," exists in the sign in name already
+			//transportFriendlyUsername = malloc(strlen(username) + 1);
+			transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+			return transportFriendlyUsername;
+		}
+		else
+		{
+			SIPEServerLogin = s_PrefsHandler->GetStringPreference("SIPEServerLogin", templateId, username);
+			if (strcmp(SIPEServerLogin, "") != 0)
+			{
+				//transportFriendlyUsername = malloc(strlen(username) + 1);
+				transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+
+				//SIPE Account
+				char *SIPEFullLoginName = NULL;
+				SIPEFullLoginName = (char *)calloc(strlen(transportFriendlyUsername) + strlen(SIPEServerLogin) + 2, sizeof(char));
+				strcat(SIPEFullLoginName, transportFriendlyUsername);
+				strcat(SIPEFullLoginName, ",");
+				strcat(SIPEFullLoginName, SIPEServerLogin);
+
+				return SIPEFullLoginName;
+			}
 		}
 	}
-	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0)
+
+	//Special Case for jabber when resource is set. Account name is USERNAME/RESOURCE
+	if (strcmp(serviceName, SERVICENAME_JABBER) == 0)
 	{
-		if (strstr(username, "@icq.com") != NULL)
+		if (strstr(username, "/") != NULL)
 		{
-			strtok(transportFriendlyUsername, "@");
+			//A "/" exists in the sign in name already
+			transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+
+			return transportFriendlyUsername;
+		}
+		else
+		{
+			JabberResource = s_PrefsHandler->GetStringPreference("JabberResource", templateId, username);
+			
+			if (strcmp(JabberResource, "") != 0)
+			{
+				transportFriendlyUsername = strcpy(transportFriendlyUsername, username);
+				
+				//Jabber Account
+				char *JabberFullLoginName = NULL;
+				JabberFullLoginName = (char *)calloc(strlen(transportFriendlyUsername) + strlen(JabberResource) + 2, sizeof(char));
+				strcat(JabberFullLoginName, transportFriendlyUsername);
+				strcat(JabberFullLoginName, "/");
+				strcat(JabberFullLoginName, JabberResource);
+
+				return JabberFullLoginName;
+			}
 		}
 	}
+	
 	MojLogInfo(IMServiceApp::s_log, _T("getPrplFriendlyUsername: username: %s, transportFriendlyUsername: %s"), username, transportFriendlyUsername);
 	return transportFriendlyUsername;
-}
-
-/*
- * The messaging service expects the username to be in the username@domain.com format, whereas the AIM prpl uses the username only
- * Free the returned string when you're done with it 
- */
-static char* getMojoFriendlyUsername(const char* username, const char* serviceName)
-{
-	if (!username || !serviceName)
-	{
-		return strdup("");
-	}
-	GString* mojoFriendlyUsername = g_string_new(username);
-	if (strcmp(serviceName, SERVICENAME_AIM) == 0 && strchr(username, '@') == NULL)
-	{
-		g_string_append(mojoFriendlyUsername, "@aol.com");
-	}
-	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0 && strchr(username, '@') == NULL)
-	{
-		g_string_append(mojoFriendlyUsername, "@yahoo.com");
-	}
-	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0 && strchr(username, '@') == NULL)
-	{
-		g_string_append(mojoFriendlyUsername, "@icq.com");
-	}
-	else if (strcmp(serviceName, SERVICENAME_GTALK) == 0)
-	{
-		char* resource = (char*)memchr(username, '/', strlen(username));
-		if (resource != NULL)
-		{
-			int charsToKeep = resource - username;
-			g_string_erase(mojoFriendlyUsername, charsToKeep, -1);
-		}
-	}
-	char* mojoFriendlyUsernameToReturn = strdup(mojoFriendlyUsername->str);
-	g_string_free(mojoFriendlyUsername, TRUE);
-	return mojoFriendlyUsernameToReturn;
 }
 
 static char* stripResourceFromGtalkUsername(const char* username, const char* serviceName)
@@ -384,7 +500,7 @@ static char* stripResourceFromGtalkUsername(const char* username, const char* se
 	{
 		return strdup("");
 	}
-	if (strcmp(serviceName, SERVICENAME_GTALK) != 0)
+	if ((strcmp(serviceName, SERVICENAME_GTALK) != 0) && (strcmp(serviceName, SERVICENAME_JABBER) != 0))
 	{
 		return strdup(username);
 	}
@@ -441,10 +557,43 @@ static char* getPrplProtocolIdFromServiceName(const char* serviceName)
 	}
 	GString* prplProtocolId = g_string_new("prpl-");
 
-	if (strcmp(serviceName, SERVICENAME_GTALK) == 0)
+	if ((strcmp(serviceName, SERVICENAME_GTALK) == 0) || (strcmp(serviceName, SERVICENAME_LIVE) == 0) || (strcmp(serviceName, SERVICENAME_FACEBOOK) == 0) || (strcmp(serviceName, SERVICENAME_SAMETIME) == 0) || (strcmp(serviceName, SERVICENAME_GROUPWISE) == 0) || (strcmp(serviceName, SERVICENAME_GADU) == 0) || (strcmp(serviceName, SERVICENAME_WLM) == 0))
 	{
-		// Special case for gtalk where the mojo serviceName is "type_gtalk" and the prpl protocol_id is "prpl-jabber"
-		g_string_append(prplProtocolId, "jabber");
+		if (strcmp(serviceName, SERVICENAME_GTALK) == 0)
+		{
+			// Special case for gtalk where the mojo serviceName is "type_gtalk" and the prpl protocol_id is "prpl-jabber"
+			g_string_append(prplProtocolId, "jabber");
+		}
+		if (strcmp(serviceName, SERVICENAME_LIVE) == 0)
+		{
+			// Special case for live where the mojo serviceName is "type_live" and the prpl protocol_id is "prpl-msn"
+			g_string_append(prplProtocolId, "msn");
+		}
+		if (strcmp(serviceName, SERVICENAME_WLM) == 0)
+		{
+			// Special case for live (pecan) where the mojo serviceName is "type_wlm" and the prpl protocol_id is "prpl-msn-pecan"
+			g_string_append(prplProtocolId, "msn-pecan");
+		}
+		if (strcmp(serviceName, SERVICENAME_FACEBOOK) == 0)
+		{
+			// Special case for facebook where the mojo serviceName is "type_facebook" and the prpl protocol_id is "prpl-bigbrownchunx-facebookim"
+			g_string_append(prplProtocolId, "bigbrownchunx-facebookim");
+		}
+		if (strcmp(serviceName, SERVICENAME_SAMETIME) == 0)
+		{
+			// Special case for sametime where the mojo serviceName is "type_sametime" and the prpl protocol_id is "prpl-meanwhile"
+			g_string_append(prplProtocolId, "meanwhile");
+		}
+		if (strcmp(serviceName, SERVICENAME_GROUPWISE) == 0)
+		{
+			// Special case for groupwise where the mojo serviceName is "type_groupwise" and the prpl protocol_id is "prpl-novell"
+			g_string_append(prplProtocolId, "novell");
+		}
+		if (strcmp(serviceName, SERVICENAME_GADU) == 0)
+		{
+			// Special case for gadu gadu where the mojo serviceName is "type_gadu" and the prpl protocol_id is "prpl-gg"
+			g_string_append(prplProtocolId, "gg");
+		}
 	}
 	else
 	{
@@ -461,8 +610,9 @@ static char* getPrplProtocolIdFromServiceName(const char* serviceName)
  * Given the prpl-specific protocol_id, it will return mojo-friendly serviceName (e.g. given "prpl-aim", it will return "type_aim")
  * Free the returned string when you're done with it 
  */
-static char* getServiceNameFromPrplProtocolId(char* prplProtocolId)
+static char* getServiceNameFromPrplProtocolId(PurpleAccount *account)
 {
+	char *prplProtocolId = account->protocol_id;
 	if (!prplProtocolId)
 	{
 		MojLogError(IMServiceApp::s_log, _T("getServiceNameFromPrplProtocolId called with empty protocolId"));
@@ -474,9 +624,66 @@ static char* getServiceNameFromPrplProtocolId(char* prplProtocolId)
 
 	if (strcmp(serviceName->str, "jabber") == 0)
 	{
-		// Special case for gtalk where the mojo serviceName is "type_gtalk" and the prpl protocol_id is "jabber-purple"
+		// Special case for gtalk where the mojo serviceName is "type_gtalk" and the prpl protocol_id is "prpl-jabber"
 		g_string_free(serviceName, TRUE);
-		serviceName = g_string_new("gtalk");
+		
+		const char *Alias = purple_account_get_alias (account);
+
+		if (Alias != NULL)
+		{
+			//Check account alias. gtalk for Gtalk, jabber for Jabber
+			if (strcmp(Alias, "gtalk") == 0)
+			{
+				// Special case for gtalk where the java serviceName is "gmail" and the prpl protocol_id is "prpl-jabber"
+				serviceName = g_string_new("gtalk");
+			}
+			else
+			{
+				// Special case for jabber where the java serviceName is "jabber" and the prpl protocol_id is "prpl-jabber"
+				serviceName = g_string_new("jabber");
+			}
+		}
+		else
+		{
+			//Account alias is blank for some reason. Guess gtalk
+			serviceName = g_string_new("gtalk");
+		}
+	}
+	if (strcmp(serviceName->str, "msn") == 0)
+	{
+		// Special case for live where the mojo serviceName is "type_live" and the prpl protocol_id is "prpl-msn"
+		g_string_free(serviceName, TRUE);
+		serviceName = g_string_new("live");
+	}
+        if (strcmp(serviceName->str, "msn-pecan") == 0)
+        {
+                // Special case for live where the mojo serviceName is "type_wlm" and the prpl protocol_id is "prpl-msn-pecan"
+                g_string_free(serviceName, TRUE);
+                serviceName = g_string_new("wlm");
+        }
+	if (strcmp(serviceName->str, "bigbrownchunx-facebookim") == 0)
+	{
+		// Special case for facebook where the mojo serviceName is "type_facebook" and the prpl protocol_id is "prpl-bigbrownchunx-facebookim"
+		g_string_free(serviceName, TRUE);
+		serviceName = g_string_new("facebook");
+	}
+	if (strcmp(serviceName->str, "meanwhile") == 0)
+	{
+		// Special case for sametime where the mojo serviceName is "type_sametime" and the prpl protocol_id is "prpl-meanwhile"
+		g_string_free(serviceName, TRUE);
+		serviceName = g_string_new("sametime");
+	}
+	if (strcmp(serviceName->str, "novell") == 0)
+	{
+		// Special case for groupwise where the mojo serviceName is "type_groupwise" and the prpl protocol_id is "prpl-novell"
+		g_string_free(serviceName, TRUE);
+		serviceName = g_string_new("groupwise");
+	}
+	if (strcmp(serviceName->str, "gg") == 0)
+	{
+		// Special case for gadu where the mojo serviceName is "type_gadu" and the prpl protocol_id is "prpl-gg"
+		g_string_free(serviceName, TRUE);
+		serviceName = g_string_new("gadu");
 	}
 	char* serviceNameToReturn = NULL;
 	// asprintf allocates appropriate-sized buffer
@@ -489,7 +696,7 @@ static char* getAccountKey(const char* username, const char* serviceName)
 {
 	if (!username || !serviceName)
 	{
-		MojLogError(IMServiceApp::s_log, _T("getAccountKey called with empty username or servicename. serviceName=\"%s\""), serviceName);
+		MojLogError(IMServiceApp::s_log, _T("getAccountKey called with username=\"%s\" and serviceName=\"%s\""), username, serviceName);
 		return strdup("");
 	}
 	char *accountKey = NULL;
@@ -500,19 +707,9 @@ static char* getAccountKey(const char* username, const char* serviceName)
 
 static char* getAuthRequestKey(const char* username, const char* serviceName, const char* remoteUsername)
 {
-	if (!username)
+	if (!username || !serviceName || !remoteUsername)
 	{
-		MojLogError(IMServiceApp::s_log, _T("getAuthRequestKey - empty username"));
-		return strdup("");
-	}
-	if (!serviceName)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getAuthRequestKey - empty serviceName"));
-		return strdup("");
-	}
-	if (!remoteUsername)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getAuthRequestKey - empty remoteUsername"));
+		MojLogError(IMServiceApp::s_log, _T("getAuthRequestKey - empty input parameter. username: %s, serviceName: %s, remoteUsername: %s"), username, serviceName, remoteUsername);
 		return strdup("");
 	}
 	char *authRequestKey = NULL;
@@ -529,7 +726,7 @@ static char* getAccountKeyFromPurpleAccount(PurpleAccount* account)
 		MojLogError(IMServiceApp::s_log, _T("getAccountKeyFromPurpleAccount called with empty account"));
 		return strdup("");
 	}
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	char* serviceName = getServiceNameFromPrplProtocolId(account);
 	char* username = getMojoFriendlyUsername(account->username, serviceName);
 	char* accountKey = getAccountKey(username, serviceName);
 
@@ -772,19 +969,19 @@ static PurpleStatusPrimitive getPurpleAvailabilityFromPalmAvailability(int palmA
 
 static void buddy_signed_on_off_cb(PurpleBuddy* buddy, gpointer data)
 {
-//	LSError lserror;
-//	LSErrorInit(&lserror);
+	LSError lserror;
+	LSErrorInit(&lserror);
 
 	PurpleAccount* account = purple_buddy_get_account(buddy);
 	char* accountKey = getAccountKeyFromPurpleAccount(account);
 	const char* accountId = (const char*)g_hash_table_lookup(s_AccountIdsData, accountKey);
 	if (NULL == accountId) {
-		MojLogError(IMServiceApp::s_log, _T("buddy_signed_on_off_cb: accountId not found in table."));
+		MojLogError(IMServiceApp::s_log, _T("buddy_signed_on_off_cb: accountId not found in table. accountKey: %s"), accountKey);
 		free(accountKey);
 		return;
 	}
 
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	char* serviceName = getServiceNameFromPrplProtocolId(account);
 	PurpleStatus* activeStatus = purple_presence_get_active_status(purple_buddy_get_presence(buddy));
 	/*
 	 * Getting the new availability
@@ -795,14 +992,34 @@ static void buddy_signed_on_off_cb(PurpleBuddy* buddy, gpointer data)
 	const char* customMessage = "";
 	char* buddyAvatarLocation = NULL;
 
-	if (icon != NULL)
+	char* UserName = getMojoFriendlyUsername(account->username, serviceName);
+	char* templateId = getMojoFriendlyTemplateID(serviceName);
+
+	if (s_PrefsHandler->GetBoolPreference("Avatar", templateId, UserName) == true)
 	{
-		buddyAvatarLocation = purple_buddy_icon_get_full_path(icon);
+		if (icon != NULL)
+		{
+			buddyAvatarLocation = purple_buddy_icon_get_full_path(icon);
+		}
 	}
-		
-	if (buddy->alias == NULL)
+	else
 	{
-		buddy->alias = (char*)"";
+		buddyAvatarLocation = (char*)"";
+	}
+	
+	if (s_PrefsHandler->GetBoolPreference("Alias", templateId, UserName) == true)
+	{
+		if (buddy->server_alias == NULL)
+		{
+			buddy->server_alias = (char*)"";
+		}
+	}
+	else
+	{
+		if (buddy->alias == NULL)
+		{
+			buddy->alias = (char*)"";
+		}
 	}
 
 	customMessage = purple_status_get_attr_string(activeStatus, "message");
@@ -817,22 +1034,42 @@ static void buddy_signed_on_off_cb(PurpleBuddy* buddy, gpointer data)
 	{
 		groupName = "";
 	}
+	
+	//Special for Office Communicator. (Remove 'sip:' prefix)
+	if (strcmp(serviceName, SERVICENAME_SIPE) == 0)
+	{
+		if (strstr(buddy->name, "sip:") != NULL)
+		{
+			GString *SIPBuddyAlias = g_string_new(buddy->name);
+			g_string_erase(SIPBuddyAlias, 0, 4);
+			buddy->name = SIPBuddyAlias->str;
+		}
+	}
 
 	// call into the imlibpurpletransport
 	// buddy->name is stored in the imbuddyStatus DB kind in the libpurple format - ie. for AIM without the "@aol.com" so that is how we need to search for it
 	s_imServiceHandler->updateBuddyStatus(accountId, serviceName, buddy->name, newAvailabilityValue,customMessage, groupName, buddyAvatarLocation);
 
-	g_message(
-			"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
-			__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->alias, groupName);
+	if (s_PrefsHandler->GetBoolPreference("Alias", templateId, UserName) == true)
+	{
+		g_message(
+				"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
+				__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->server_alias, groupName);
+	}
+	else
+	{
+			g_message(
+				"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
+				__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->alias, groupName);
+	}
 	
 	free(serviceName);
 	free(accountKey);
 
-	if (buddyAvatarLocation)
+	/* if (buddyAvatarLocation)
 	{
 		g_free(buddyAvatarLocation);
-	}
+	} */
 }
 
 static void buddy_status_changed_cb(PurpleBuddy* buddy, PurpleStatus* old_status, PurpleStatus* new_status,
@@ -853,24 +1090,35 @@ static void buddy_status_changed_cb(PurpleBuddy* buddy, PurpleStatus* old_status
 		customMessage = "";
 	}
 
-//	LSError lserror;
-//	LSErrorInit(&lserror);
+	LSError lserror;
+	LSErrorInit(&lserror);
 
 	PurpleAccount* account = purple_buddy_get_account(buddy);
 	char* accountKey = getAccountKeyFromPurpleAccount(account);
 	const char* accountId = (const char*)g_hash_table_lookup(s_AccountIdsData, accountKey);
 	if (NULL == accountId) {
-		MojLogError(IMServiceApp::s_log, _T("buddy_status_changed_cb: accountId not found in table."));
+		MojLogError(IMServiceApp::s_log, _T("buddy_status_changed_cb: accountId not found in table. accountKey: %s"), accountKey);
 		free(accountKey);
 		return;
 	}
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	char* serviceName = getServiceNameFromPrplProtocolId(account);
 
 	PurpleBuddyIcon* icon = purple_buddy_get_icon(buddy);
-	char* buddyAvatarLocation = NULL;	
-	if (icon != NULL)
+	char* buddyAvatarLocation = NULL;
+	
+	char* UserName = getMojoFriendlyUsername(account->username, serviceName);
+	char* templateId = getMojoFriendlyTemplateID(serviceName);
+	
+	if (s_PrefsHandler->GetBoolPreference("Avatar", templateId, UserName) == true)
 	{
-		buddyAvatarLocation = purple_buddy_icon_get_full_path(icon);
+		if (icon != NULL)
+		{
+			buddyAvatarLocation = purple_buddy_icon_get_full_path(icon);
+		}
+	}
+	else
+	{
+		buddyAvatarLocation = (char*)"";
 	}
 
 	PurpleGroup* group = purple_buddy_get_group(buddy);
@@ -880,13 +1128,33 @@ static void buddy_status_changed_cb(PurpleBuddy* buddy, PurpleStatus* old_status
 		groupName = "";
 	}
 
+	//Special for Office Communicator. (Remove 'sip:' prefix)
+	if (strcmp(serviceName, SERVICENAME_SIPE) == 0)
+	{
+		if (strstr(buddy->name, "sip:") != NULL)
+		{
+			GString *SIPBuddyAlias = g_string_new(buddy->name);
+			g_string_erase(SIPBuddyAlias, 0, 4);
+			buddy->name = SIPBuddyAlias->str;
+		}
+	}
+	
 	// call into the imlibpurpletransport
 	// buddy->name is stored in the imbuddyStatus DB kind in the libpurple format - ie. for AIM without the "@aol.com" so that is how we need to search for it
 	s_imServiceHandler->updateBuddyStatus(accountId, serviceName, buddy->name, newAvailabilityValue, customMessage, groupName, buddyAvatarLocation);
 
-	g_message(
+	if (s_PrefsHandler->GetBoolPreference("Alias", templateId, UserName) == true)
+	{
+		g_message(
+				"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
+				__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->server_alias, groupName);
+	}
+	else
+	{
+		g_message(
 			"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
 			__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->alias, groupName);
+	}
 	
 	if (serviceName)
 	{
@@ -894,10 +1162,10 @@ static void buddy_status_changed_cb(PurpleBuddy* buddy, PurpleStatus* old_status
 	}
 	free(accountKey);
 
-	if (buddyAvatarLocation)
+	/* if (buddyAvatarLocation)
 	{
 		g_free(buddyAvatarLocation);
-	}
+	} */
 }
 
 static void buddy_avatar_changed_cb(PurpleBuddy* buddy)
@@ -908,21 +1176,12 @@ static void buddy_avatar_changed_cb(PurpleBuddy* buddy)
 }
 
 /*
- * Called after we remove a buddy from our list
+ * Called after we remove a buddy from out list
  */
 static void buddy_removed_cb(PurpleBuddy* buddy)
 {
 	// nothing to do...
 	MojLogInfo(IMServiceApp::s_log, _T("buddy removed %s"), buddy->name);
-}
-
-/*
- * Called after we block a buddy from our list
- */
-static void buddy_blocked_cb(PurpleBuddy* buddy)
-{
-	// nothing to do...
-	MojLogInfo(IMServiceApp::s_log, _T("buddy blocked %s"), buddy->name);
 }
 
 /*
@@ -941,37 +1200,206 @@ static void buddy_added_cb(PurpleBuddy* buddy)
 //	MojLogInfo(IMServiceApp::s_log, _T("im message sent: %s, receiver %s"), message, receiver);
 //}
 
-static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
+bool LibpurpleAdapter::getFullBuddyList(const char* serviceName, const char* username)
 {
+	MojLogInfo(IMServiceApp::s_log, "%s called.", __FUNCTION__);
+
+	if (!serviceName || !username)
+	{
+		MojLogError(IMServiceApp::s_log, _T("getBuddyList: Invalid parameter. Please double check the passed parameters."));
+		return FALSE;
+	}
+
+	if (s_loginState == NULL)
+	{
+		MojLogError(IMServiceApp::s_log, _T("getBuddyList: s_loginState still null."));
+		return FALSE;
+	}
+
+	MojLogInfo(IMServiceApp::s_log, _T("getFullBuddyList: Parameters: serviceName %s, username %s"), serviceName, username);
+
+	/*
+	 * Send over the full buddy list if the account is already logged in
+	 */
+	bool success;
+	char* accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	if (account == NULL)
+	{
+		MojLogError(IMServiceApp::s_log, _T("getFullBuddyList: ERROR: No account for %s on %s"), username, serviceName);
+		MojLogError(IMServiceApp::s_log, _T("getFullBuddyList !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! accountKey: %s"), accountKey);
+		success = FALSE;
+	}
+	else
+	{
+		success = TRUE;
+		GSList* buddyList = purple_find_buddies(account, NULL);
+		MojObject buddyListObj;
+		if (!buddyList)
+		{
+			MojLogError(IMServiceApp::s_log, _T("getFullBuddyList: WARNING: the buddy list was NULL, returning empty buddy list. accountKey %s"), accountKey);
+			s_loginState->buddyListResult(serviceName, username, buddyListObj, true);
+		}
+
+		GSList* buddyIterator = NULL;
+		PurpleBuddy* buddyToBeAdded = NULL;
+		PurpleGroup* group = NULL;
+		char* buddyAvatarLocation = NULL;
+
+		//printf("\n\n\n\n\n\n ---------------- BUDDY LIST SIZE: %d----------------- \n\n\n\n\n\n", g_slist_length(buddyList));
+		for (buddyIterator = buddyList; buddyIterator != NULL; buddyIterator = buddyIterator->next)
+		{
+			MojObject buddyObj;
+			buddyObj.clear(MojObject::TypeArray);
+			buddyToBeAdded = (PurpleBuddy*)buddyIterator->data;
+
+			buddyObj.putString("username", buddyToBeAdded->name);
+			buddyObj.putString("serviceName", serviceName);
+
+			group = purple_buddy_get_group(buddyToBeAdded);
+			const char* groupName = purple_group_get_name(group);
+			buddyObj.putString("group", groupName);
+
+			/*
+			 * Getting the availability
+			 */
+			PurpleStatus* status = purple_presence_get_active_status(purple_buddy_get_presence(buddyToBeAdded));
+			int newStatusPrimitive = purple_status_type_get_primitive(purple_status_get_type(status));
+			int availability = getPalmAvailabilityFromPurpleAvailability(newStatusPrimitive);
+			buddyObj.putInt("availability", availability);
+
+			char* templateId = getMojoFriendlyTemplateID((char*)serviceName);
+			
+			//Special for Office Communicator. (Remove 'sip:' prefix)
+			if (strcmp(serviceName, SERVICENAME_SIPE) == 0)
+			{
+				if (strstr(buddyToBeAdded->name, "sip:") != NULL)
+				{
+					GString *SIPBuddyAlias = g_string_new(buddyToBeAdded->name);
+					g_string_erase(SIPBuddyAlias, 0, 4);
+					buddyObj.putString("displayName", SIPBuddyAlias->str);
+				}
+				else
+				{
+					buddyObj.putString("displayName", buddyToBeAdded->name);
+				}
+			}
+			else
+			{
+				if (s_PrefsHandler->GetBoolPreference("Alias", templateId, username) == true)
+				{
+					if (buddyToBeAdded->server_alias != NULL)
+					{
+						buddyObj.putString("displayName", buddyToBeAdded->server_alias);
+					}
+				}
+				else
+				{
+					if (buddyToBeAdded->alias != NULL)
+					{
+						buddyObj.putString("displayName", buddyToBeAdded->alias);
+					}
+				}
+			}
+
+			PurpleBuddyIcon* icon = purple_buddy_get_icon(buddyToBeAdded);
+
+			if (s_PrefsHandler->GetBoolPreference("Avatar", templateId, username) == true)
+			{
+				if (icon != NULL)
+				{
+					buddyAvatarLocation = purple_buddy_icon_get_full_path(icon);
+					buddyObj.putString("avatar", buddyAvatarLocation);
+				}
+				else
+				{
+					buddyObj.putString("avatar", "");
+				}
+			}
+			else
+			{
+				buddyObj.putString("avatar", "");
+			}
+
+			const char* customMessage = purple_status_get_attr_string(status, "message");
+			if (customMessage != NULL)
+			{
+				buddyObj.putString("status", customMessage);
+			}
+
+			if (s_PrefsHandler->GetBoolPreference("Alias", templateId, username) == true)
+			{
+				g_message("%s says: %s's presence: availability: '%d', custom message: '%s', avatar location: '%s', display name: '%s', group name:'%s'",
+						__FUNCTION__, buddyToBeAdded->name, availability, customMessage, buddyAvatarLocation, buddyToBeAdded->server_alias, groupName);
+			}
+			else
+			{
+				g_message("%s says: %s's presence: availability: '%d', custom message: '%s', avatar location: '%s', display name: '%s', group name:'%s'",
+						__FUNCTION__, buddyToBeAdded->name, availability, customMessage, buddyAvatarLocation, buddyToBeAdded->alias, groupName);
+			}
+			
+			if (buddyAvatarLocation)
+			{
+				g_free(buddyAvatarLocation);
+				buddyAvatarLocation = NULL;
+			}
+
+			buddyListObj.push(buddyObj);
+		}
+
+		s_loginState->buddyListResult(serviceName, username, buddyListObj, true);
+
+		//TODO free the buddyList object???
+	}
+
+	if (accountKey)
+	{
+		free(accountKey);
+	}
+	return success;
+}
+
+typedef struct _LoginDetails
+{
+	PurpleAccount* account;
+	char* accountKey;
+	char* serviceName;
+	char* username;
+	gpointer loginState;
+} LoginDetails;
+
+gboolean BuddyListRefreshCallback(gpointer data)
+{
+	LoginDetails *logindetails = (LoginDetails*)data;
+
 	void* blist_handle = purple_blist_get_handle();
 	static int handle;
-
-	PurpleAccount* loggedInAccount = purple_connection_get_account(gc);
-	g_return_if_fail(loggedInAccount != NULL);
-
-	char* serviceName = getServiceNameFromPrplProtocolId(loggedInAccount->protocol_id);
-	char* username = getMojoFriendlyUsername(loggedInAccount->username, serviceName);
-	char* accountKey = getAccountKey(username, serviceName);
+	gpointer loginState = logindetails->loginState;
+	
+	char* accountKey = logindetails->accountKey;
+	PurpleAccount* loggedInAccount = (PurpleAccount*)logindetails->account;
+	char* serviceName = logindetails->serviceName;
+	char* username = logindetails->username;
 
 	if (g_hash_table_lookup(s_onlineAccountData, accountKey) != NULL)
 	{
-		// we were online. why are we getting notified that we're connected again? we were never disconnected.
-		// mark the account online just to be sure?
-		MojLogError(IMServiceApp::s_log, _T("account_logged_in_cb: account already online. why are we getting notified?"));
-		free(serviceName);
-		free(username);
+		/*
+		 * If the account is not pending anymore (which means login either already failed or succeeded) 
+		 * then we shouldn't have gotten to this point since we should have cancelled the timer
+		 */
+		MojLogError(IMServiceApp::s_log,
+				_T("WARNING: we shouldn't have gotten to BuddyListRefreshCallback since the account is not logged in. accountKey %s"), accountKey);
 		free(accountKey);
-		return;
+		return TRUE;
 	}
 
 	/*
-	 * cancel the connect timeout for this account
+	 * Remove the timer
 	 */
-	guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey);
-
-	purple_timeout_remove(timerHandle);
-	g_hash_table_remove(s_accountLoginTimers, accountKey);
-
+	guint BuddyListtimerHandle = (guint)g_hash_table_lookup(s_accountBuddyListTimers, accountKey);
+	purple_timeout_remove(BuddyListtimerHandle);
+	g_hash_table_remove(s_accountBuddyListTimers, accountKey);
+	
 	// Don't free accountKey because s_onlineAccountData has a reference to it.
 	MojLogInfo(IMServiceApp::s_log, _T("account_logged_in_cb: inserting account into onlineAccountData hash table. accountKey %s"), accountKey);
 	g_hash_table_insert(s_onlineAccountData, accountKey, loggedInAccount);
@@ -979,10 +1407,10 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 
 	MojLogInfo(IMServiceApp::s_log, _T("Account connected..."));
 
-	// reply with login success
+	//reply with login success
 	if (loginState)
 	{
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_SUCCESS, false, ERROR_NO_ERROR, true);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_SUCCESS, false, ERROR_NO_ERROR, false);
 	}
 	else
 	{
@@ -1002,9 +1430,7 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 		purple_signal_connect(blist_handle, "buddy-removed", &handle, PURPLE_CALLBACK(buddy_removed_cb),
 				GINT_TO_POINTER(FALSE));
 		purple_signal_connect(blist_handle, "buddy-added", &handle, PURPLE_CALLBACK(buddy_added_cb),
-				GINT_TO_POINTER(FALSE));
-		purple_signal_connect(blist_handle, "buddy-privacy-changed", &handle, PURPLE_CALLBACK(buddy_blocked_cb),
-				GINT_TO_POINTER(FALSE));
+						GINT_TO_POINTER(FALSE));
 
 		// testing. Doesn't work: error - "Signal data for sent-im-msg not found". Need to figure out the right handle
 //		purple_signal_connect(purple_connections_get_handle(), "sent-im-msg", &handle, PURPLE_CALLBACK(sent_message_cb),
@@ -1012,8 +1438,55 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 		s_registeredForPresenceUpdateSignals = TRUE;
 	}
 	
-	free(serviceName);
-	free(username);
+	//Refresh the full buddy list
+	MojLogError(IMServiceApp::s_log, _T("BuddyListRefreshCallback accountKey: %s"), accountKey);
+	
+	return TRUE;
+}
+
+static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
+{
+	PurpleAccount* loggedInAccount = purple_connection_get_account(gc);
+	g_return_if_fail(loggedInAccount != NULL);
+
+	char* serviceName = getServiceNameFromPrplProtocolId(loggedInAccount);
+	char* username = getMojoFriendlyUsername(loggedInAccount->username, serviceName);
+	char* accountKey = getAccountKey(username, serviceName);
+
+	if (g_hash_table_lookup(s_onlineAccountData, accountKey) != NULL)
+	{
+		// we were online. why are we getting notified that we're connected again? we were never disconnected.
+		// mark the account online just to be sure?
+		MojLogError(IMServiceApp::s_log, _T("account_logged_in_cb: account already online. why are we getting notified? accountKey %s"), accountKey);
+		free(serviceName);
+		free(username);
+		free(accountKey);
+		return;
+	}
+
+	/*
+	 * cancel the connect timeout for this account
+	 */
+	guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey);
+	purple_timeout_remove(timerHandle);
+	g_hash_table_remove(s_accountLoginTimers, accountKey);
+	
+	//Create timer to refresh the buddy list after login
+	LoginDetails* logindetails = g_new0(LoginDetails, 1);
+	
+	logindetails->accountKey = accountKey;
+	logindetails->serviceName = serviceName;
+	logindetails->username = username;
+	logindetails->loginState = loginState;
+	logindetails->account = loggedInAccount;
+	
+	char* templateId = getMojoFriendlyTemplateID((char*)serviceName);
+	char* BuddyListTimeOut = s_PrefsHandler->GetStringPreference("BuddyListTimeOut", templateId, username);
+	static const guint BUDDY_LIST_REFRESH = (guint)atoi(BuddyListTimeOut);
+	guint BuddyListtimerHandle = purple_timeout_add_seconds(BUDDY_LIST_REFRESH, BuddyListRefreshCallback, logindetails);
+	g_hash_table_insert(s_accountBuddyListTimers, accountKey, (gpointer)BuddyListtimerHandle);
+	
+	MojLogError(IMServiceApp::s_log, _T("Login successful. Waiting %s seconds to ensure successful buddy list retrieval."),BuddyListTimeOut);
 }
 
 static void account_signed_off_cb(PurpleConnection* gc, gpointer loginState)
@@ -1054,7 +1527,7 @@ static void account_signed_off_cb(PurpleConnection* gc, gpointer loginState)
 	// reply with signed off
 	if (loginState)
 	{
-		char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+		char* serviceName = getServiceNameFromPrplProtocolId(account);
 		char* myMojoFriendlyUsername = getMojoFriendlyUsername(account->username, serviceName);
 		((LoginCallbackInterface*)loginState)->loginResult(serviceName, myMojoFriendlyUsername, LoginCallbackInterface::LOGIN_SIGNED_OFF, false, ERROR_NO_ERROR, true);
 		free(serviceName);
@@ -1075,14 +1548,14 @@ static void account_signed_off_cb(PurpleConnection* gc, gpointer loginState)
 static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError type, const gchar* description,
 		gpointer loginState)
 {
-	MojLogError(IMServiceApp::s_log, _T("account_login_failed is called with type %d, description: %s"), type, description);
+	MojLogInfo(IMServiceApp::s_log, _T("account_login_failed is called with description %s"), description);
 
 	PurpleAccount* account = purple_connection_get_account(gc);
 	g_return_if_fail(account != NULL);
 
 	gboolean loggedOut = FALSE;
 	bool noRetry = true;
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	char* serviceName = getServiceNameFromPrplProtocolId(account);
 	char* username = getMojoFriendlyUsername(account->username, serviceName);
 	char* accountKey = getAccountKey(username, serviceName);
 
@@ -1093,14 +1566,17 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 		 * b) the server is down, or c) the user has logged in from a different location and forced this session to
 		 * get closed.
 		 */
-		if (type != PURPLE_CONNECTION_ERROR_NETWORK_ERROR)
+		// Special handling for broken network connection errors (due to bad coverage or flight mode)
+		if (type == 0)//PURPLE_CONNECTION_ERROR_NETWORK_ERROR)
 		{
-			// TODO - this does not seem to really be used...
-			loggedOut = TRUE;
-			MojLogError(IMServiceApp::s_log, _T("We were logged out. Reason: %s, prpl error code: %i"), description, type);
+			MojLogInfo(IMServiceApp::s_log, _T("We had a network error. Reason: %s, prpl error code: %i"), description, type);
+			noRetry = false;
 		}
-		MojLogInfo(IMServiceApp::s_log, _T("account_login_failed_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey);
-		g_hash_table_remove(s_onlineAccountData, accountKey);
+		else
+		{
+			loggedOut = TRUE;
+			MojLogInfo(IMServiceApp::s_log, _T("We were logged out. Reason: %s, prpl error code: %i"), description, type);
+		}
 	}
 	else
 	{
@@ -1110,33 +1586,31 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 		guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey);
 		purple_timeout_remove(timerHandle);
 		g_hash_table_remove(s_accountLoginTimers, accountKey);
+		
+		//Cancel the buddy list timer
+		guint BuddyListtimerHandle = (guint)g_hash_table_lookup(s_accountBuddyListTimers, accountKey);
+		purple_timeout_remove(BuddyListtimerHandle);
+		g_hash_table_remove(s_accountBuddyListTimers, accountKey);
 
 		if (g_hash_table_lookup(s_pendingAccountData, accountKey) == NULL)
 		{
 			/*
-			 * This account was in neither of the account data lists (online or pending). This can happen if the connection goes down
-			 * while we are in the process of logging in and the account was in the pending list (gets removed in deviceConnectionClosed).
+			 * This account was in neither of the account data lists (online or pending). We must have logged it out 
+			 * and not cared about letting mojo know about it (probably because mojo went down and came back up and
+			 * thought that the account was logged out anyways)
 			 */
-			MojLogWarning(IMServiceApp::s_log, _T("account_login_failed_cb: account in neither online or pending list. Can happen if we lose connection while in pending state."));
-			// still need to let MojoDb know about the failure
-//			free(serviceName);
-//			free(username);
-//			free(accountKey);
-//			return;
+			MojLogError(IMServiceApp::s_log, _T("account_login_failed_cb: account in neither online or pending list. Why are we getting logged out? accountKey: %s description %s:"),
+					accountKey, description);
+			// don't leak!
+			free(serviceName);
+			free(username);
+			free(accountKey);
+			return;
 		}
 		else
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("account_login_failed_cb: removing account from pendingAccountData hash table. accountKey %s"), accountKey);
 			g_hash_table_remove(s_pendingAccountData, accountKey);
 		}
-	}
-
-	// Special handling for broken network connection errors (due to bad coverage or flight mode)
-	// We need to set noRetry to false if there was a network type error regardless of if we were pending or online.
-	if (type == PURPLE_CONNECTION_ERROR_NETWORK_ERROR)
-	{
-		MojLogError(IMServiceApp::s_log, _T("We had a network error. Reason: %s, prpl error code: %i. Need to retry"), description, type);
-		noRetry = false;
 	}
 
 	const char* mojoFriendlyErrorCode = getMojoFriendlyErrorCode(type);
@@ -1152,7 +1626,8 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 	{
 		connectionType = "";
 	}
-
+	MojLogInfo(IMServiceApp::s_log, _T("account_login_failed_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey);
+	g_hash_table_remove(s_onlineAccountData, accountKey);
 	g_hash_table_remove(s_ipAddressesBoundTo, accountKey);
 	g_hash_table_remove(s_connectionTypeData, accountKey);
  
@@ -1169,6 +1644,8 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 	// reply with login failed
 	if (loginState != NULL)
 	{
+		//TODO: determine if there are cases where noRetry should be false
+		//TODO: include "description" parameter because it had useful details?
 		((LoginCallbackInterface*)loginState)->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_FAILED, loggedOut, mojoFriendlyErrorCode, noRetry);
 	}
 	else
@@ -1188,14 +1665,14 @@ static void account_status_changed(PurpleAccount* account, PurpleStatus* oldStat
 
 /*
  *  This gets called then we decline a remote user's buddy invite
- *  What signal gets emitted when a remote user declines our invitation???
+ *  TODO - what signal gets emitted when a remote user declines our invitation???
  */
 static void account_auth_deny_cb(PurpleAccount* account, const char* remote_user)
 {
 	MojLogInfo(IMServiceApp::s_log, _T("account_auth_deny_cb called. account: %s, remote_user: %s"), account->username, remote_user);
 
 	// TODO this needs to happen when remote user declines our invite, not here...
-//	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+//	char* serviceName = getServiceNameFromPrplProtocolId(account);
 //	char* username = getMojoFriendlyUsername(account->username, serviceName);
 //	char* usernameFromStripped = stripResourceFromGtalkUsername(remote_user, serviceName);
 //
@@ -1244,7 +1721,7 @@ void incoming_message_cb(PurpleConversation* conv, const char* who, const char* 
 	PurpleAccount* account = purple_conversation_get_account(conv);
 
 	// these never return null...
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	char* serviceName = getServiceNameFromPrplProtocolId(account);
 	char* username = getMojoFriendlyUsername(account->username, serviceName);
 
 	if (strcmp(username, usernameFrom) == 0) // TODO: should this compare use account->username?
@@ -1267,6 +1744,17 @@ void incoming_message_cb(PurpleConversation* conv, const char* who, const char* 
 	}
 
 	char* usernameFromStripped = stripResourceFromGtalkUsername(usernameFrom, serviceName);
+	
+	//Special for Office Communicator. (Remove 'sip:' prefix)
+	if (strcmp(serviceName, SERVICENAME_SIPE) == 0)
+	{
+		if (strstr(usernameFromStripped, "sip:") != NULL)
+		{
+			GString *SIPBuddyAlias = g_string_new(usernameFromStripped);
+			g_string_erase(SIPBuddyAlias, 0, 4);
+			usernameFromStripped = (char*)SIPBuddyAlias->str;
+		}
+	}
 
 	// call the transport service incoming message handler
 	s_imServiceHandler->incomingIM(serviceName, username, usernameFromStripped, message);
@@ -1289,7 +1777,7 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 	MojLogInfo(IMServiceApp::s_log, _T("request_authorize_cb called. remote user: %s, id: %s, message: %s"), remote_user, id, message);
 
 	// these never return null...
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	char* serviceName = getServiceNameFromPrplProtocolId(account);
 	char* username = getMojoFriendlyUsername(account->username, serviceName);
 	char* usernameFromStripped = stripResourceFromGtalkUsername(remote_user, serviceName);
 
@@ -1331,50 +1819,43 @@ void request_add_cb(PurpleAccount *account, const char *remote_user, const char 
 
 gboolean connectTimeoutCallback(gpointer data)
 {
-
-	MojLogError(IMServiceApp::s_log, _T("connectTimeoutCallback called - we not neither success nor failure callback from the last login attempt."));
-	bool noRetry = true;
 	char* accountKey = (char*)data;
 	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_pendingAccountData, accountKey);
 	if (account == NULL)
 	{
 		/*
-		 * We can get here if we abandoned a pending login because a better connection (wifi) came up
-		 * In this case, this is the only way that we can tell MojoDb that the login did not complete and to reset it's watch
+		 * If the account is not pending anymore (which means login either already failed or succeeded) 
+		 * then we shouldn't have gotten to this point since we should have cancelled the timer
 		 */
-		MojLogWarning(IMServiceApp::s_log,
-				_T("WARNING: got to connectTimeoutCallback without an account in the pending list. Must have abandoned login earlier."));
-		noRetry = false;
-//		free(accountKey);
-//		return FALSE;
-	}
-	else {
-		/*
-		 * abort logging in since our connect timeout has hit before login either failed or succeeded
-		 */
-		purple_account_disconnect(account);
+		MojLogError(IMServiceApp::s_log,
+				_T("WARNING: we shouldn't have gotten to connectTimeoutCallback since login had already failed/succeeded. accountKey %s"), accountKey);
+		free(accountKey);
+		return FALSE;
 	}
 
+	/*
+	 * abort logging in since our connect timeout has hit before login either failed or succeeded
+	 */
 	g_hash_table_remove(s_accountLoginTimers, accountKey);
 	g_hash_table_remove(s_pendingAccountData, accountKey);
 	g_hash_table_remove(s_ipAddressesBoundTo, accountKey);
+	g_hash_table_remove(s_accountBuddyListTimers, accountKey);
+
+	purple_account_disconnect(account);
 
 	if (s_loginState)
 	{
-		char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+		char* serviceName = getServiceNameFromPrplProtocolId(account);
 		char* username = getMojoFriendlyUsername(account->username, serviceName);
 
-		// TODO - should noRetry be false here in other cases?
-		// Can't really tell - we will get here if the proper sa security certificate is not installed, which is a permanent failure.
-		// libpurple just does not reliably call the login failed callback in all cases...this is not the same as a connection timeout. 
-		s_loginState->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_TIMEOUT, false, ERROR_NETWORK_ERROR, noRetry);
+		s_loginState->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_TIMEOUT, false, ERROR_NETWORK_ERROR, true);
 
 		free(serviceName);
 		free(username);
 	}
 	else
 	{
-		MojLogError(IMServiceApp::s_log, _T("ERROR: connectTimeoutCallback called with s_loginState=NULL."));
+		MojLogError(IMServiceApp::s_log, _T("ERROR: connectTimeoutCallback called with s_loginState=NULL. accountKey %s"), accountKey);
 	}
 
 	free(accountKey);
@@ -1415,6 +1896,11 @@ static void initializeLibpurple()
 	 * 	- uninitialize the ui components for all the modules when the core terminates.
 	 */
 	purple_core_set_ui_ops(&adapterCoreUIOps);
+	
+	/* Set path to search for plugins. The core (libpurple) takes care of loading the
+	* core-plugins, which includes the protocol-plugins. So it is not essential to add
+	* any path here, but it might be desired, especially for ui-specific plugins. */
+	purple_plugins_add_search_path(CUSTOM_PLUGIN_PATH);
 
 	purple_eventloop_set_ui_ops(&adapterEventLoopUIOps);
 
@@ -1437,13 +1923,13 @@ static void initializeLibpurple()
 /*
  * End of libpurple initialization methods
  */
-
+ 
 /*
  * Service methods
- */
+ */ 
 LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, LoginCallbackInterface* loginState)
-{
-	LoginResult result = OK;
+{	
+	LoginResult result = LibpurpleAdapter::OK;
 
 	PurpleAccount* account;
 	char* prplProtocolId = NULL;
@@ -1459,7 +1945,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	if (!params || !params->serviceName || params->serviceName[0] == 0 || !params->username || params->username[0] == 0)
 	{
 		MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login with empty username or serviceName"));
-		result = INVALID_CREDENTIALS;
+		result = LibpurpleAdapter::INVALID_CREDENTIALS;
 		goto error;
 	}
 
@@ -1521,13 +2007,13 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			 */
 			if (accountIsAlreadyPending)
 			{
-				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login: We were already in the process of logging in."));
-				return OK;
+				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login: We were already in the process of logging in. accountKey %s"), accountKey);
+				return LibpurpleAdapter::OK;
 			}
 			else if (accountIsAlreadyOnline)
 			{
-				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login: We were already logged in to the requested account."));
-				return ALREADY_LOGGED_IN;
+				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login: We were already logged in to the requested account. accountKey %s"), accountKey);
+				return LibpurpleAdapter::ALREADY_LOGGED_IN;
 			}
 		}
 		else
@@ -1536,7 +2022,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			 * We're not using the right interface. Close the current connection for this account and create a new one
 			 */
 			MojLogError(IMServiceApp::s_log,
-					_T("LibpurpleAdapter::login: We have to logout and login again since the local IP address has changed. Logging out from account."));
+					_T("LibpurpleAdapter::login: We have to logout and login again since the local IP address has changed. Logging out from account. accountKey %s"), accountKey);
 			/*
 			 * Once the current connection is closed we don't want to let mojo know that the account was disconnected.
 			 * Since mojo went down and came back up it didn't know that the account was connected anyways.
@@ -1563,14 +2049,13 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	if (params->password == NULL || params->password[0] == 0)
 	{
 		MojLogError(IMServiceApp::s_log, _T("Error: null or empty password trying to log in to servicename %s"), params->serviceName);
-		result = INVALID_CREDENTIALS;
+		result = LibpurpleAdapter::INVALID_CREDENTIALS;
 		goto error;
 	}
 	else
 	{
-#ifdef DEVICE
 		/* save the local IP address that we need to use */
-		// If you are running imlibpurpletransport on desktop, but tethered to device, params->localIpAddress needs to be set to
+		// TODO - move this to #ifdef. If you are running imlibpurpletransport on desktop, but tethered to device, params->localIpAddress needs to be set to
 		// NULL otherwise login will fail...
 		if (params->localIpAddress != NULL && params->localIpAddress[0] != 0)
 		{
@@ -1579,16 +2064,15 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		}
 		else
 		{
-
+#ifdef DEVICE
 			/*
 			 * If we're on device you should not accept an empty ipAddress; it's mandatory to be provided
 			 */
 			MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login with missing localIpAddress"));
 			result = FAILED;
 			goto error;
-
-		}
 #endif
+		}
 
 		/* save the local IP address that we need to use */
 		if (params->connectionType != NULL && params->connectionType[0] != 0)
@@ -1597,7 +2081,6 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		}
 
 		prplProtocolId = getPrplProtocolIdFromServiceName(params->serviceName);
-
 		/*
 		 * If we've already logged in to this account before then re-use the old PurpleAccount struct
 		 */
@@ -1610,26 +2093,35 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			if (!account)
 			{
 				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login failed to create new Purple account"));
-				result = FAILED;
+				result = LibpurpleAdapter::FAILED;
 				goto error;
 			}
 		}
 
-		if (strcmp(prplProtocolId, "prpl-jabber") == 0 && g_str_has_suffix(transportFriendlyUserName, "@gmail.com") == FALSE &&
-			g_str_has_suffix(transportFriendlyUserName, "@googlemail.com") == FALSE)
+		//Load account preferences
+		char* templateId = getMojoFriendlyTemplateID((char*)params->serviceName);
+		
+		if (strcmp((char*)params->serviceName, SERVICENAME_JABBER) == 0)
 		{
-			/*
-			 * Special case for gmail... don't try to connect to mydomain.com if the username is me@mydomain.com. They might not have
-			 * setup the SRV record. Always connect to gmail.
-			 */
-			purple_account_set_string(account, "connect_server", "talk.google.com");
+			//Set Account Alias to jabber
+			purple_account_set_alias (account,"jabber");
 		}
+		if (strcmp((char*)params->serviceName,SERVICENAME_GTALK) == 0)
+		{
+			//Set Account Alias to gtalk
+			purple_account_set_alias (account,"gtalk");
+		}
+		
+		MojString m_templateId;
+		m_templateId.assign(templateId);
+		s_PrefsHandler->setaccountprefs(m_templateId,account);
+		//Load account preferences
 		MojLogInfo(IMServiceApp::s_log, _T("Logging in..."));
 
 		purple_account_set_password(account, params->password);
 	}
 
-	if (result == OK)
+	if (result == LibpurpleAdapter::OK)
 	{
 		/* mark the account as pending */
 		g_hash_table_insert(s_pendingAccountData, accountKey, account);
@@ -1648,6 +2140,9 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/*
 		 * Create a timer for this account's login so it can fail the login after a timeout.
 		 */
+		char* UserName = getMojoFriendlyUsername(params->username, params->serviceName);
+		char* templateId = getMojoFriendlyTemplateID((char*)params->serviceName);
+		static const guint CONNECT_TIMEOUT_SECONDS = (guint)atoi(s_PrefsHandler->GetStringPreference("LoginTimeOut", templateId, UserName));
 		guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, accountKey);
 		g_hash_table_insert(s_accountLoginTimers, accountKey, (gpointer)timerHandle);
 
@@ -1699,7 +2194,7 @@ bool LibpurpleAdapter::logout(const char* serviceName, const char* username, Log
 		accountTologoutFrom = (PurpleAccount*)g_hash_table_lookup(s_pendingAccountData, accountKey);
 		if (accountTologoutFrom == NULL)
 		{
-			MojLogError(IMServiceApp::s_log, _T("Trying to logout from an account that is not logged in. service name %s"), serviceName);
+			MojLogError(IMServiceApp::s_log, _T("Trying to logout from an account that is not logged in. username %s, service name %s, accountKey %s"), username, serviceName, accountKey);
 			success = FALSE;
 		}
 	}
@@ -1818,19 +2313,9 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 	bool success = FALSE;
 	MojLogInfo(IMServiceApp::s_log, _T("%s called."), __FUNCTION__);
 
-	if (!serviceName)
+	if (!serviceName || !username || !buddyUsername)
 	{
-		MojLogError(IMServiceApp::s_log, _T("blockBuddy: null serviceNname"));
-		return INVALID_PARAMS;
-	}
-	if (!username)
-	{
-		MojLogError(IMServiceApp::s_log, _T("blockBuddy: null username"));
-		return INVALID_PARAMS;
-	}
-	if (!buddyUsername)
-	{
-		MojLogError(IMServiceApp::s_log, _T("blockBuddy: null buddyUsername"));
+		MojLogError(IMServiceApp::s_log, _T("blockBuddy: null parameter. username %s, service name %s, buddyUsername %s"), username, serviceName, buddyUsername);
 		return INVALID_PARAMS;
 	}
 
@@ -1843,16 +2328,8 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 		char *transportFriendlyUserName = getPrplFriendlyUsername(serviceName, buddyUsername);
 		if (block)
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: deny %s. account perm_deny %d"), transportFriendlyUserName, account->perm_deny);
+			MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: deny %s"), transportFriendlyUserName);
 			purple_privacy_deny(account, transportFriendlyUserName, false, true);
-			//bool success = purple_privacy_deny_add(account, transportFriendlyUserName, false);
-			//if (!success) {
-			//	MojLogError(IMServiceApp::s_log, "blockBuddy: purple_privacy_deny_add - returned false");
-			//	GSList *l;
-			//	for (l = account->deny; l != NULL; l = l->next) {
-			//		MojLogError(IMServiceApp::s_log, "account deny list: %s", purple_normalize(account, (char *)l->data));
-			//	}
-			//}
 		}
 		else
 		{
@@ -1863,7 +2340,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 	}
 	else
 	{
-		MojLogError(IMServiceApp::s_log, "blockBuddy: Trying to send from an account that is not logged in. service name %s", serviceName);
+		MojLogError(IMServiceApp::s_log, "blockBuddy: Trying to send from an account that is not logged in. username %s, service name %s, accountKey %s", username, serviceName, accountKey);
 	}
 
 	if (accountKey)
@@ -1884,19 +2361,9 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::removeBuddy(const char* serviceNa
 	bool success = FALSE;
 	MojLogInfo(IMServiceApp::s_log, _T("%s called."), __FUNCTION__);
 
-	if (!serviceName)
+	if (!serviceName || !username || !buddyUsername)
 	{
-		MojLogError(IMServiceApp::s_log, _T("removeBuddy: null serviceNname"));
-		return INVALID_PARAMS;
-	}
-	if (!username)
-	{
-		MojLogError(IMServiceApp::s_log, _T("removeBuddy: null username"));
-		return INVALID_PARAMS;
-	}
-	if (!buddyUsername)
-	{
-		MojLogError(IMServiceApp::s_log, _T("removeBuddy: null buddyUsername"));
+		MojLogError(IMServiceApp::s_log, _T("removeBuddy: null parameter. username %s, service name %s, buddyUsername %s"), username, serviceName, buddyUsername);
 		return INVALID_PARAMS;
 	}
 
@@ -1911,7 +2378,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::removeBuddy(const char* serviceNa
 
 		PurpleBuddy* buddy = purple_find_buddy(account, transportFriendlyUserName);
 		if (NULL == buddy) {
-			MojLogError(IMServiceApp::s_log, _T("could not find buddy in list - cannot remove"));
+			MojLogError(IMServiceApp::s_log, _T("could not find buddy %s in list - cannot remove"), transportFriendlyUserName);
 			success = FALSE;
 		}
 		else {
@@ -1927,7 +2394,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::removeBuddy(const char* serviceNa
 	}
 	else
 	{
-		MojLogError(IMServiceApp::s_log, "removeBuddy: Trying to send from an account that is not logged in. service name %s", serviceName);
+		MojLogError(IMServiceApp::s_log, "removeBuddy: Trying to send from an account that is not logged in. username %s, service name %s, accountKey %s", username, serviceName, accountKey);
 	}
 
 	if (accountKey)
@@ -1948,19 +2415,9 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::addBuddy(const char* serviceName,
 	bool success = FALSE;
 	MojLogInfo(IMServiceApp::s_log, _T("%s called."), __FUNCTION__);
 
-	if (!serviceName)
+	if (!serviceName || !username || !buddyUsername)
 	{
-		MojLogError(IMServiceApp::s_log, _T("addBuddy: null serviceNname"));
-		return INVALID_PARAMS;
-	}
-	if (!username)
-	{
-		MojLogError(IMServiceApp::s_log, _T("addBuddy: null username"));
-		return INVALID_PARAMS;
-	}
-	if (!buddyUsername)
-	{
-		MojLogError(IMServiceApp::s_log, _T("addBuddy: null buddyUsername"));
+		MojLogError(IMServiceApp::s_log, _T("addBuddy: null parameter. username %s, service name %s, buddyUsername %s"), username, serviceName, buddyUsername);
 		return INVALID_PARAMS;
 	}
 
@@ -2019,7 +2476,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::addBuddy(const char* serviceName,
 	}
 	else
 	{
-		MojLogError(IMServiceApp::s_log, "addBuddy: Trying to send from an account that is not logged in. service name %s", serviceName);
+		MojLogError(IMServiceApp::s_log, "addBuddy: Trying to send from an account that is not logged in. username %s, service name %s, accountKey %s", username, serviceName, accountKey);
 	}
 
 	if (accountKey)
@@ -2051,7 +2508,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::authorizeBuddy(const char* servic
 
 	if (onlineAccount == NULL)
 	{
-		MojLogError(IMServiceApp::s_log, _T("authorizeBuddy: account not online"));
+		MojLogError(IMServiceApp::s_log, _T("authorizeBuddy: account not online. accountKey: %s"), accountKey);
 		free (accountKey);
 		return USER_NOT_LOGGED_IN;
 	}
@@ -2063,7 +2520,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::authorizeBuddy(const char* servic
 	AuthRequest *aa = (AuthRequest *)g_hash_table_lookup(s_AuthorizeRequests, authRequestKey);
 	if (NULL == aa)
 	{
-		MojLogError(IMServiceApp::s_log, "authorizeBuddy: cannot find auth request object");
+		MojLogError(IMServiceApp::s_log, "authorizeBuddy: cannot find auth request object - authRequestKey %s", authRequestKey);
 		// log the table
 		logAuthRequestTableValues();
 		free (authRequestKey);
@@ -2090,20 +2547,10 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::authorizeBuddy(const char* servic
  */
 LibpurpleAdapter::SendResult LibpurpleAdapter::declineBuddy(const char* serviceName, const char* username, const char* fromUsername)
 {
-	MojLogInfo(IMServiceApp::s_log, _T("declineBuddy: username: %s, serviceName: %s, buddyUsername: %s"), username, serviceName, fromUsername);
-	if (!serviceName)
+	MojLogError(IMServiceApp::s_log, _T("declineBuddy: username: %s, serviceName: %s, buddyUsername: %s"), username, serviceName, fromUsername);
+	if (!serviceName || !username || !fromUsername)
 	{
-		MojLogError(IMServiceApp::s_log, _T("declineBuddy: null serviceNname"));
-		return INVALID_PARAMS;
-	}
-	if (!username)
-	{
-		MojLogError(IMServiceApp::s_log, _T("declineBuddy: null username"));
-		return INVALID_PARAMS;
-	}
-	if (!fromUsername)
-	{
-		MojLogError(IMServiceApp::s_log, _T("declineBuddy: null fromUsername"));
+		MojLogError(IMServiceApp::s_log, _T("declineBuddy: null parameter. cannot process command"));
 		return INVALID_PARAMS;
 	}
 
@@ -2112,7 +2559,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::declineBuddy(const char* serviceN
 	PurpleAccount* onlineAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
 	if (onlineAccount == NULL)
 	{
-		MojLogError(IMServiceApp::s_log, _T("declineBuddy: account not online"));
+		MojLogError(IMServiceApp::s_log, _T("declineBuddy: account not online. accountKey: %s"), accountKey);
 		free (accountKey);
 		return USER_NOT_LOGGED_IN;
 	}
@@ -2124,7 +2571,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::declineBuddy(const char* serviceN
 	AuthRequest *aa = (AuthRequest *)g_hash_table_lookup(s_AuthorizeRequests, authRequestKey);
 	if (NULL == aa)
 	{
-		MojLogError(IMServiceApp::s_log, "declineBuddy: cannot find auth request object");
+		MojLogError(IMServiceApp::s_log, "declineBuddy: cannot find auth request object - authRequestKey %s", authRequestKey);
 		// log the table
 		logAuthRequestTableValues();
 		free (authRequestKey);
@@ -2140,121 +2587,6 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::declineBuddy(const char* serviceN
 	// free key used for look-up
 	free (authRequestKey);
 	return SENT;
-}
-
-bool LibpurpleAdapter::getFullBuddyList(const char* serviceName, const char* username)
-{
-	MojLogInfo(IMServiceApp::s_log, "%s called.", __FUNCTION__);
-
-	if (!serviceName || !username)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getBuddyList: Invalid parameter. Please double check the passed parameters."));
-		return FALSE;
-	}
-
-	if (s_loginState == NULL)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getBuddyList: s_loginState still null."));
-		return FALSE;
-	}
-
-	MojLogInfo(IMServiceApp::s_log, _T("getFullBuddyList: Parameters: serviceName %s, username %s"), serviceName, username);
-
-	/*
-	 * Send over the full buddy list if the account is already logged in
-	 */
-	bool success;
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
-	if (account == NULL)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getFullBuddyList: ERROR: No account for user on %s"), serviceName);
-		success = FALSE;
-	}
-	else
-	{
-		success = TRUE;
-		GSList* buddyList = purple_find_buddies(account, NULL);
-		MojObject buddyListObj;
-		if (!buddyList)
-		{
-			MojLogError(IMServiceApp::s_log, _T("getFullBuddyList: WARNING: the buddy list was NULL, returning empty buddy list."));
-			s_loginState->buddyListResult(serviceName, username, buddyListObj, true);
-		}
-
-		GSList* buddyIterator = NULL;
-		PurpleBuddy* buddyToBeAdded = NULL;
-		PurpleGroup* group = NULL;
-		char* buddyAvatarLocation = NULL;
-
-		//printf("\n\n\n\n\n\n ---------------- BUDDY LIST SIZE: %d----------------- \n\n\n\n\n\n", g_slist_length(buddyList));
-		for (buddyIterator = buddyList; buddyIterator != NULL; buddyIterator = buddyIterator->next)
-		{
-			MojObject buddyObj;
-			buddyObj.clear(MojObject::TypeArray);
-			buddyToBeAdded = (PurpleBuddy*)buddyIterator->data;
-
-			buddyObj.putString("username", buddyToBeAdded->name);
-			buddyObj.putString("serviceName", serviceName);
-
-			group = purple_buddy_get_group(buddyToBeAdded);
-			const char* groupName = purple_group_get_name(group);
-			buddyObj.putString("group", groupName);
-
-			/*
-			 * Getting the availability
-			 */
-			PurpleStatus* status = purple_presence_get_active_status(purple_buddy_get_presence(buddyToBeAdded));
-			int newStatusPrimitive = purple_status_type_get_primitive(purple_status_get_type(status));
-			int availability = getPalmAvailabilityFromPurpleAvailability(newStatusPrimitive);
-			buddyObj.putInt("availability", availability);
-
-			if (buddyToBeAdded->alias != NULL)
-			{
-				buddyObj.putString("displayName", buddyToBeAdded->alias);
-			}
-
-			PurpleBuddyIcon* icon = purple_buddy_get_icon(buddyToBeAdded);
-			if (icon != NULL)
-			{
-				buddyAvatarLocation = purple_buddy_icon_get_full_path(icon);
-				buddyObj.putString("avatar", buddyAvatarLocation);
-				MojLogInfo(IMServiceApp::s_log, _T("getFullBuddyList: buddy %s avatar %s."), buddyToBeAdded->name, buddyAvatarLocation);
-			}
-			else
-			{
-				buddyObj.putString("avatar", "");
-				MojLogInfo(IMServiceApp::s_log, _T("getFullBuddyList: buddy %s has no avatar."), buddyToBeAdded->name);
-			}
-
-			const char* customMessage = purple_status_get_attr_string(status, "message");
-			if (customMessage != NULL)
-			{
-				buddyObj.putString("status", customMessage);
-			}
-
-			g_message("%s says: %s's presence: availability: '%d', custom message: '%s', avatar location: '%s', display name: '%s', group name:'%s'",
-					__FUNCTION__, buddyToBeAdded->name, availability, customMessage, buddyAvatarLocation, buddyToBeAdded->alias, groupName);
-
-			if (buddyAvatarLocation)
-			{
-				g_free(buddyAvatarLocation);
-				buddyAvatarLocation = NULL;
-			}
-
-			buddyListObj.push(buddyObj);
-		}
-
-		s_loginState->buddyListResult(serviceName, username, buddyListObj, true);
-
-		//TODO free the buddyList object???
-	}
-
-	if (accountKey)
-	{
-		free(accountKey);
-	}
-	return success;
 }
 
 LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceName, const char* username, const char* usernameTo, const char* messageText)
@@ -2274,7 +2606,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceNa
 	if (accountToSendFrom == NULL)
 	{
 		retVal = LibpurpleAdapter::USER_NOT_LOGGED_IN;
-		MojLogError(IMServiceApp::s_log, _T("sendMessage: Trying to send from an account that is not logged in. service name %s"), serviceName);
+		MojLogError(IMServiceApp::s_log, _T("sendMessage: Trying to send from an account that is not logged in. username %s, service name %s, accountKey %s"), username, serviceName, accountKey);
 	}
 	else
 	{
@@ -2309,12 +2641,10 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceNa
 // If all==true, then all interfaces went down.
 bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 {
-	MojLogInfo(IMServiceApp::s_log, _T("%s called. ipAddress %s"), __FUNCTION__, ipAddress);
+	MojLogInfo(IMServiceApp::s_log, _T("%s called."), __FUNCTION__);
 
-	if (!ipAddress && !all)
+	if (!ipAddress)
 	{
-		// not much we can do here
-		MojLogError(IMServiceApp::s_log, _T("deviceConnectionClosed called with all=false and no ipAddress. Nothing to do"));
 		return FALSE;
 	}
 
@@ -2327,7 +2657,7 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 	{
 		char* accountKey = (char*)iterator->data;
 		char* accountBoundToIpAddress = (char*)g_hash_table_lookup(s_ipAddressesBoundTo, accountKey);
-		if (all == true || (accountBoundToIpAddress != NULL && ipAddress != NULL && strcmp(ipAddress, accountBoundToIpAddress) == 0))
+		if (all == true || (accountBoundToIpAddress != NULL && strcmp(ipAddress, accountBoundToIpAddress) == 0))
 		{
 			bool accountWasLoggedIn = FALSE;
 
@@ -2340,8 +2670,7 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 					MojLogInfo(IMServiceApp::s_log, _T("account was not found in the hash"));
 					continue;
 				}
-				// Note: in this case our login timer is still active, so that is the way we will let MojoDb know we are abandoning login and to reset watch.
-				MojLogWarning(IMServiceApp::s_log, _T("deviceConnectionClosed: Abandoning pending login"));
+				MojLogInfo(IMServiceApp::s_log, _T("Abandoning login"));
 			}
 			else
 			{
@@ -2356,7 +2685,6 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 			}
 			if (g_hash_table_lookup(s_pendingAccountData, accountKey) != NULL)
 			{
-				MojLogInfo(IMServiceApp::s_log, _T("deviceConnectionClosed: removing account from pendingAccountData hash table. accountKey %s"), accountKey);
 				g_hash_table_remove(s_pendingAccountData, accountKey);
 			}
 			if (g_hash_table_lookup(s_offlineAccountData, accountKey) == NULL)
@@ -2371,6 +2699,8 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 
 			accountToLogoutList = g_slist_append(accountToLogoutList, account);
 
+			MojLogInfo(IMServiceApp::s_log, _T("deviceConnectionClosed: removing account from onlineAccountData hash table. accountKey %s"), accountKey);
+			g_hash_table_remove(s_onlineAccountData, accountKey);
 			// We can't remove this guy since we're iterating through its keys. We'll remove it after the break
 			//g_hash_table_remove(ipAddressesBoundTo, accountKey);
 		}
@@ -2386,7 +2716,7 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 		for (accountIterator = accountToLogoutList; accountIterator != NULL; accountIterator = accountIterator->next)
 		{
 			account = (PurpleAccount*) accountIterator->data;
-			char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+			char* serviceName = getServiceNameFromPrplProtocolId(account);
 			char* username = getMojoFriendlyUsername(account->username, serviceName);
 			char* accountKey = getAccountKey(username, serviceName);
 
@@ -2459,6 +2789,11 @@ void LibpurpleAdapter::assignIMServiceHandler(IMServiceCallbackInterface* imServ
 	s_imServiceHandler = imServiceHandler;
 }
 
+void LibpurpleAdapter::assignPrefsHandler(LibpurplePrefsHandler* PrefsHandler)
+{
+	s_PrefsHandler = PrefsHandler;
+}
+
 /*
  * Value destroy function for s_AuthorizeRequests
  */
@@ -2469,27 +2804,6 @@ static void deleteAuthRequest(void* obj)
  	g_free(aa->remote_user);
 	g_free(aa->alias);
 	g_free(aa);
-}
-
-/*
- * Check if all the accounts are offline so we can shut down
- */
-bool LibpurpleAdapter::allAccountsOffline()
-{
-	if (0 == g_hash_table_size(s_onlineAccountData))
-	{
-		if (0 == g_hash_table_size(s_pendingAccountData)) {
-			return true;
-		}
-		else {
-			MojLogInfo(IMServiceApp::s_log, _T("allAccountsOffline - %d accounts still pending"), g_hash_table_size(s_pendingAccountData));
-		}
-	}
-	else {
-		MojLogInfo(IMServiceApp::s_log, _T("allAccountsOffline - %d accounts still online"), g_hash_table_size(s_onlineAccountData) );
-	}
-
-	return false;
 }
 
 void LibpurpleAdapter::init()
@@ -2511,6 +2825,7 @@ void LibpurpleAdapter::init()
 	s_AccountIdsData = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, free);
 	s_offlineAccountData = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
 	s_AuthorizeRequests = g_hash_table_new_full(g_str_hash, g_str_equal, free, deleteAuthRequest);
-
+	s_accountBuddyListTimers = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
+	
 	initializeLibpurple();
 }

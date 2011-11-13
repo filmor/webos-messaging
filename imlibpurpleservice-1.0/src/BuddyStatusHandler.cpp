@@ -26,33 +26,26 @@
 #include "BuddyStatusHandler.h"
 #include "db/MojDbQuery.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "IMDefines.h"
-#include "IMMessage.h"
 
 /*
  * Note the order of the globals inited below, it matters
  */
-BuddyStatusHandler::BuddyStatusHandler(MojService* service, IMServiceApp::Listener* listener)
+BuddyStatusHandler::BuddyStatusHandler(MojService* service)
 : m_saveStatusSlot(this, &BuddyStatusHandler::saveStatusResult),
   m_saveContactSlot(this, &BuddyStatusHandler::saveContactResult),
   m_findCommandSlot(this, &BuddyStatusHandler::findCommandResult),
   m_saveCommandSlot(this, &BuddyStatusHandler::saveCommandResult),
-  m_findContactSlot(this, &BuddyStatusHandler::findContactResult),
   m_service(service),
   m_dbClient(service, MojDbServiceDefs::ServiceName),
   m_tempdbClient(service, MojDbServiceDefs::TempServiceName)
 {
-	// tell listener we are now active
-	m_listener = listener;
-	m_listener->ProcessStarting();
+
 }
 
 
-BuddyStatusHandler::~BuddyStatusHandler()
-{
-	// tell listener we are done
-	m_listener->ProcessDone();
+BuddyStatusHandler::~BuddyStatusHandler() {
+
 }
 
 /*
@@ -101,6 +94,14 @@ MojErr BuddyStatusHandler::updateBuddyStatus(const char* accountId, const char* 
 	}
 
 	// if the buddy avatar location changed, we have to update the contact too
+	/*"photos": [
+		{
+			"localPath": "/var/luna/data/im-avatars/2e9cd3fdce4419f58128ad6854543fdb58a2137b.png",
+			"value": "/var/luna/data/im-avatars/2e9cd3fdce4419f58128ad6854543fdb58a2137b.png",
+			"type": "type_square"
+		}
+	]
+	*/
 	if (NULL != buddyAvatarLoc) {
 		m_buddyAvatarLoc.assign(buddyAvatarLoc);
 
@@ -113,125 +114,33 @@ MojErr BuddyStatusHandler::updateBuddyStatus(const char* accountId, const char* 
 			MojLogError(IMServiceApp::s_log, _T("createContactQuery failed: error %d - %s"), err, error.data());
 			return err;
 		}
+		// create merge property
+		// Note: libPurple doesn't support multiple avatars for a buddy - we only get one
+		MojObject newPhotosArray, newPhotoObj;
+		newPhotoObj.put("localPath", m_buddyAvatarLoc);
+		newPhotoObj.put("value", m_buddyAvatarLoc);
+		newPhotoObj.putString("type", "type_square"); // AIM and GTalk generally send small, square-ish images
+		newPhotosArray.push(newPhotoObj);
+		MojObject contactMergeProps;
+		contactMergeProps.put("photos", newPhotosArray);
 
-		// first we want to see if this is a change from the current contact photo because contact linker will get launched any time any field in the contact is saved, which impacts performance
-		// and battery life.
-		err = m_dbClient.find(this->m_findContactSlot, contactsQuery, /* watch */ false );
+		// log it
+		MojString json;
+		contactMergeProps.toJson(json);
+		MojLogInfo(IMServiceApp::s_log, _T("saving contact to db: %s"), json.data());
+
+		// save the new fields - call merge
+		err = m_dbClient.merge(m_saveContactSlot, contactsQuery, contactMergeProps);
 		if (err) {
 			MojString error;
 			MojErrToString(err, error);
-			MojLogError(IMServiceApp::s_log, _T("updateBuddyStatus find failed: error %d - %s"), err, error.data());
+			MojLogError(IMServiceApp::s_log, _T("dbClient merge contact failed: error %d - %s"), err, error.data());
+			return err;
 		}
 	}
 
 	return MojErrNone;
 }
-
-MojErr BuddyStatusHandler::findContactResult(MojObject& result, MojErr findErr)
-{
-	MojLogTrace(IMServiceApp::s_log);
-
-	if (findErr) {
-
-		MojString error;
-		MojErrToString(findErr, error);
-		MojLogError(IMServiceApp::s_log, _T("find existing contact failed: error %d - %s"), findErr, error.data());
-
-	} else {
-
-		// get the results
-		MojString mojStringJson;
-		result.toJson(mojStringJson);
-		MojLogInfo(IMServiceApp::s_log, _T("findContactResult result: %s"), mojStringJson.data());
-
-		MojObject results;
-
-		// get results array in "results"
-		result.get(_T("results"), results);
-
-		// we should always get a result here
-		if (!results.empty()) {
-			// get the contact object
-			MojObject contact;
-			MojObject::ConstArrayIterator itr = results.arrayBegin();
-			bool foundOne = false;
-			while (itr != results.arrayEnd()) {
-				if (foundOne) {
-					MojLogError(IMServiceApp::s_log,
-							_T("findContactResult: found more than one contact with same username/serviceName - using the first one"));
-					break;
-				}
-				contact = *itr;
-				foundOne = true;
-				itr++;
-			}
-
-			// see if there is an existing avatar and if it matches
-			/*"photos": [
-				{
-					"localPath": "/var/luna/data/im-avatars/2e9cd3fdce4419f58128ad6854543fdb58a2137b.png",
-					"value": "/var/luna/data/im-avatars/2e9cd3fdce4419f58128ad6854543fdb58a2137b.png",
-					"type": "type_square"
-				}
-			]
-			*/
-			MojObject photoArray, photo;
-			MojErr err;
-			bool found = contact.get("photos", photoArray);
-			if (found && !photoArray.empty()) {
-				// Note: libPurple doesn't support multiple avatars for a buddy - we only get one
-				MojObject::ConstArrayIterator photoItr = photoArray.arrayBegin();
-				photo = *photoItr;
-				MojString path;
-				err = photo.get("localPath", path, found);
-				if (!err && found) {
-					// see if the old path is the same as the new one
-					MojLogInfo(IMServiceApp::s_log, _T("findContactResult: contact photo %s. buddy avatar %s"), path.data(), m_buddyAvatarLoc.data());
-					if (0 == path.compare(m_buddyAvatarLoc.data())) {
-						MojLogInfo(IMServiceApp::s_log, _T("findContactResult: contact photo did not change. No need to re-save"));
-						return MojErrNone;
-					}
-				}
-			}
-
-			// Path changed - need to save
-			MojString dbId;
-			err = contact.getRequired(MOJDB_ID, dbId);
-			if (err) {
-				MojLogError(IMServiceApp::s_log, _T("findContactResult: contact had no dbId"));
-				return err;
-			}
-			// create merge property
-			MojObject newPhotosArray, newPhotoObj;
-			newPhotoObj.put("localPath", m_buddyAvatarLoc);
-			newPhotoObj.put("value", m_buddyAvatarLoc);
-			newPhotoObj.putString("type", "type_square"); // AIM and GTalk generally send small, square-ish images
-			newPhotosArray.push(newPhotoObj);
-			MojObject contactMergeProps;
-			contactMergeProps.put("photos", newPhotosArray);
-			contactMergeProps.putString(MOJDB_ID, dbId);
-
-			// log it
-			MojString json;
-			contactMergeProps.toJson(json);
-			MojLogInfo(IMServiceApp::s_log, _T("saving contact to db: %s"), json.data());
-
-			// save the new fields - call merge
-			err = m_dbClient.merge(m_saveContactSlot, contactMergeProps);
-			if (err) {
-				MojString error;
-				MojErrToString(err, error);
-				MojLogError(IMServiceApp::s_log, _T("dbClient merge contact failed: error %d - %s"), err, error.data());
-				return err;
-			}
-		}
-		else {
-			MojLogError(IMServiceApp::s_log, _T("findContactResult: no matching contact record found for %s"), m_serviceName.data());
-		}
-	}
-	return MojErrNone;
-}
-
 
 /*
  * Receive a request for authorization from another user to be a buddy.

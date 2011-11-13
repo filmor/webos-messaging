@@ -34,7 +34,7 @@ class OutgoingIMCommandHandler : public OutgoingIMHandler
 {
 public:
 
-	OutgoingIMCommandHandler(MojService* service, MojInt64 activityId, IMServiceApp::Listener* listener);
+	OutgoingIMCommandHandler(MojService* service, MojInt64 activityId);
 	~OutgoingIMCommandHandler();
 
 private:

@@ -167,7 +167,7 @@ MojErr SendOneMessageHandler::readAccountIdFromResults(MojObject& result)
 		MojLogInfo(IMServiceApp::s_log, _T("readAccountIdFromResults - accountId: %s. "), m_accountId.data());
 	}
 	else {
-		MojLogError(IMServiceApp::s_log, _T("readAccountIdFromResults: no matching loginState record found for %s"), m_serviceName.data());
+		MojLogError(IMServiceApp::s_log, _T("readAccountIdFromResults: no matching loginState record found for %s %s"), m_username.data(), m_serviceName.data());
 	}
 
 	return MojErrNone;
@@ -218,7 +218,7 @@ MojErr SendOneMessageHandler::findAccountIdResult(MojObject& result, MojErr find
 			}
 		}
 		else {
-			MojLogError(IMServiceApp::s_log, _T("findAccountIdResult: no matching loginState record found for %s"), m_serviceName.data());
+			MojLogError(IMServiceApp::s_log, _T("findAccountIdResult: no matching loginState record found for %s %s"), m_username.data(), m_serviceName.data());
 			// tell the outgoing Command handler we are done
 			failMessage(ERROR_SEND_GENERIC_ERROR);
 		}
@@ -361,7 +361,7 @@ MojErr SendOneMessageHandler::listAccountResult(MojObject& result, MojErr err)
 			while (templItr != results.arrayEnd()) {
 				accountTemplate = *templItr;
 				IMServiceHandler::logMojObjectJsonString(_T("listAccountTemplates template: %s"), accountTemplate);
-
+				
 				// now find the capabilityProviders array
 				MojObject providersArray;
 				found = accountTemplate.get(XPORT_CAPABILITY_PROVIDERS, providersArray);
@@ -370,7 +370,7 @@ MojErr SendOneMessageHandler::listAccountResult(MojObject& result, MojErr err)
 					while (capItr != providersArray.arrayEnd()) {
 						capability = *capItr;
 						IMServiceHandler::logMojObjectJsonString(_T("listAccountTemplates capability: %s"), capability);
-
+						
 						// find the one for our service
 						capability.get(XPORT_SERVICE_TYPE, serviceName, found);
 						if (found) {

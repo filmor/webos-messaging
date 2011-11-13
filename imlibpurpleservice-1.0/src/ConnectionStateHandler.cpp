@@ -25,7 +25,6 @@
 
 #include "ConnectionStateHandler.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 
 ConnectionState* ConnectionState::m_connState = NULL;
 IMLoginState* ConnectionState::m_loginState = NULL;
@@ -42,51 +41,33 @@ ConnectionState::ConnectionState(MojService* service)
 }
 
 bool ConnectionState::hasInternetConnection() {
-	MojLogInfo(IMServiceApp::s_log, _T("!!!!!!!!!wifi=%i, wan=%i, inet=%i"), ConnectionState::m_connState->m_wifiConnected, ConnectionState::m_connState->m_wanConnected,
-			ConnectionState::m_connState->m_inetConnected);
-	// we should look at m_inetConnected too... there are cases where connection manager says wan is connected but "unuseable" if it connection has not been torn down yet, but isInternetAvailable is false here
-	// {"internet":{"bridge":{"state":"disconnected"},"isInternetConnectionAvailable":false,"vpn":{"state":"disconnected"},
-	//    "wan":{"interfaceName":"wwan0","ipAddress":"10.13.118.115","network":"unusable","networkConfidenceLevel":"none","onInternet":"yes","state":"connected"},
-	//    "wifi":{"state":"disconnected"}}}}
-	return (ConnectionState::m_connState->m_inetConnected == true && (ConnectionState::m_connState->m_wifiConnected == true || ConnectionState::m_connState->m_wanConnected == true));
+	MojLogInfo(IMServiceApp::s_log, _T("!!!!!!!!!wifi=%i, wan=%i"), ConnectionState::m_connState->m_wifiConnected, ConnectionState::m_connState->m_wanConnected);
+	return ConnectionState::m_connState->m_wifiConnected == true || ConnectionState::m_connState->m_wanConnected == true;
 }
 
 // This provides connectivity details when IMTransport has first launched and the
 // initial response from our ConnectionManager subscription hasn't come back.
 void ConnectionState::initConnectionStatesFromActivity(const MojObject& activity)
 {
-	// log the parameters
-	//IMServiceHandler::logMojObjectJsonString(_T("ConnectionState::initConnectionStatesFromActivity: %s"), activity);
-
-
 	//{"$activity":{"activityId":16,"requirements":{"internet":{"btpan":{"state":"disconnected"},"isInternetConnectionAvailable":true,"wan":{"ipAddress":"10.13.230.47","network":"hsdpa","state":"connected"},"wifi":{"bssid":"00:17:DF:AB:49:70","ipAddress":"10.92.0.177","ssid":"Guest","state":"connected"}}},"trigger":{"fired":true,"returnValue":true}}}
 	if (m_handler && m_handler->hasConnData() == false)
 	{
-		MojLogInfo(IMServiceApp::s_log, _T("initConnectionStatesFromActivity: ConnectionStateHandler needs data"));
-
-		// activity is a const so we have to copy it to pass to slot handler...
-		MojObject activityObj(activity);
-		m_handler->connectionManagerResult(activityObj, MojErrNone);
-
-		// TODO - why is this code here?? It does not actually work since connectionManagerResult expects an $activity object...
-		// seems we get the connection manager response via activity manager immediately after, so this is not really needed...
-
-//		MojObject activityObj;
-//		bool found = activity.get("$activity", activityObj);
-//		if (found)
-//		{
-//			MojObject requirements;
-//			found = activity.get("requirements", requirements);
-//			if (found)
-//			{
-//				MojObject internet;
-//				found = requirements.get("internet", internet);
-//				if (found && m_handler)
-//				{
-//					m_handler->connectionManagerResult(internet, MojErrNone);
-//				}
-//			}
-//		}
+		MojObject activityObj;
+		bool found = activity.get("$activity", activityObj);
+		if (found)
+		{
+			MojObject requirements;
+			found = activity.get("requirements", requirements);
+			if (found)
+			{
+				MojObject internet;
+				found = requirements.get("internet", internet);
+				if (found && m_handler)
+				{
+					m_handler->connectionManagerResult(internet, MojErrNone);
+				}
+			}
+		}
 	}
 }
 
@@ -162,9 +143,7 @@ ConnectionState::ConnectionStateHandler::~ConnectionStateHandler()
 //TODO: when the connection is lost (no internet), complete/cancel the activity and exit the service
 MojErr ConnectionState::ConnectionStateHandler::connectionManagerResult(MojObject& result, MojErr err)
 {
-	// log the parameters
-	IMServiceHandler::logMojObjectJsonString(_T("ConnectionStateHandler::connectionManagerResult: %s"), result);
-
+	//MojLogInfo(IMServiceApp::s_log, _T("connectionManagerResult err=%i"), err);
 	if (err == MojErrNone && result.contains("$activity"))
 	{
 		MojObject activity, requirements, internetRequirements;
@@ -238,18 +217,11 @@ MojErr ConnectionState::ConnectionStateHandler::connectionManagerResult(MojObjec
 					prevWifiConnected != m_connState->m_wifiConnected ||
 					prevWanConnected != m_connState->m_wanConnected)
 				{
-					MojLogInfo(IMServiceApp::s_log, _T("ConnectionStateHandler::connectionManagerResult - connection changed - scheduling activity."));
 					ConnectionState::ConnectionChangedScheduler *changeScheduler = new ConnectionState::ConnectionChangedScheduler(m_service);
 					changeScheduler->scheduleActivity();
 				}
-				else {
-					MojLogInfo(IMServiceApp::s_log, _T("ConnectionStateHandler::connectionManagerResult - no change from previous state."));
-				}
 			}
 		}
-	}
-	else {
-		MojLogInfo(IMServiceApp::s_log, _T("ConnectionStateHandler::connectionManagerResult no activity object - ignoring. err = %d"), err);
 	}
 	return MojErrNone;
 }
@@ -273,6 +245,7 @@ MojErr ConnectionState::ConnectionChangedScheduler::scheduleActivity()
 	}
 	else
 	{
+		MojLogInfo(IMServiceApp::s_log, _T("com.palm.activitymanager/create \"IMLibpurple Connect Changed\""));
 		// Schedule an activity to callback after a few seconds. The activity may already exist
 		MojObject activity;
 		const MojChar* activityJSON = _T("{\"name\":\"IMLibpurple Connect Changed\"," \
@@ -299,59 +272,34 @@ MojErr ConnectionState::ConnectionChangedScheduler::scheduleActivity()
 	return err;
 }
 
-// Expected responses
-// {"activityId":78,"returnValue":true}
-// {"activityId":78,"event":"start","returnValue":true}  <-- this occurs when the timeout fires
-// Error in case there is already an activity for the given serviceName
-// {"errorCode":17,"errorText":"Activity with that name already exists","returnValue":false}
 MojErr ConnectionState::ConnectionChangedScheduler::scheduleActivityResult(MojObject& result, MojErr err)
 {
-	// log the parameters
-	IMServiceHandler::logMojObjectJsonString(_T("ConnectionChangedScheduler::scheduleActivityResult: %s"), result);
+	MojLogInfo(IMServiceApp::s_log, _T("com.palm.activitymanager \"IMLibpurple Connect Changed\" fired with err=%d"), err);
 
-	if (MojErrNone != err) {
-		MojString error;
-		MojErrToString(err, error);
-		MojLogError(IMServiceApp::s_log, _T("ConnectionChangedScheduler::scheduleActivityResult failed: error %d - %s"), err, error.data());
-		// we created this slot with unlimited responses, so we have to explicitly cancel it, unless there is another activity of this name already, in which case
-		// we get here again
-		if (MojErrExists != err) { // err 17 = "Activity with that name already exists"
-			m_scheduleActivitySlot.cancel();
-		}
-	}
-	else {
-		MojString event;
-		if (result.getRequired(_T("event"), event) == MojErrNone)
+	MojString event;
+	if (err == MojErrNone && result.getRequired(_T("event"), event) == MojErrNone)
+	{
+		MojLogInfo(IMServiceApp::s_log, _T("com.palm.activitymanager \"IMLibpurple Connect Changed\" event=%s"), event.data());
+		if (event == "start")
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("ConnectionChangedScheduler::scheduleActivityResult event=%s"), event.data());
-			if (event == "start")
-			{
-				MojInt64 activityId = 0;
-				MojObject dummy;
-				m_loginState->handleConnectionChanged(dummy);
+			MojInt64 activityId;
+			MojObject dummy;
+			m_loginState->handleConnectionChanged(dummy);
 
-				bool found = result.get("activityId", activityId);
-				if (found && activityId > 0)
-				{
-					MojRefCountedPtr<MojServiceRequest> req;
-					err = m_service->createRequest(req);
-					MojObject completeParams;
-					completeParams.put(_T("activityId"), activityId);
-					err = req->send(m_activityCompleteSlot, "com.palm.activitymanager", "complete", completeParams, 1);
-				}
-				else {
-					MojLogError(IMServiceApp::s_log,_T("ConnectionChangedScheduler::scheduleActivityResult - missing activityId"));
-				}
-				if (activityId <= 0 || err) {
-					MojString error;
-					MojErrToString(err, error);
-					MojLogError(IMServiceApp::s_log, _T("ConnectionChangedScheduler::scheduleActivityResult send request failed: error %d - %s"), err, error.data());
-					// we created this slot with unlimited responses, so we have to explicitly cancel
-					m_scheduleActivitySlot.cancel();
-				}
+			bool found = result.get("activityId", activityId);
+			if (found && activityId > 0)
+			{
+				MojRefCountedPtr<MojServiceRequest> req;
+				err = m_service->createRequest(req);
+				MojObject completeParams;
+				completeParams.put(_T("activityId"), activityId);
+				err = req->send(m_activityCompleteSlot, "com.palm.activitymanager", "complete", completeParams, 1);
+			}
+			else
+			{
+				IMServiceHandler::logMojObjectJsonString(_T("ConnectionChangedScheduler: missing activityId in %s"), result);
 			}
 		}
-		// if there is no event we get here again
 	}
 
 	return MojErrNone;

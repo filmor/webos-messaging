@@ -24,7 +24,7 @@
  */
 
 #include "IMMessage.h"
-#include "IMServiceHandler.h"
+#include "IMServiceApp.h"
 #include "sanitize.h"
 
 const char* IMMessage::statusStrings[] = {

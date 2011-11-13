@@ -31,25 +31,19 @@
 #include "ConnectionStateHandler.h"
 #include "DisplayController.h"
 #include "LibpurpleAdapter.h"
-#include "IMServiceHandler.h"
-#include "IMMessage.h"
 
 /*
  * IMLoginState
  */
-IMLoginState::IMLoginState(MojService* service, IMServiceApp::Listener* listener)
+IMLoginState::IMLoginState(MojService* service)
 : m_loginStateRevision(0),
   m_signalHandler(NULL),
-  m_service(service),
-  m_retryCount(0)
+  m_service(service)
 {
 	// Register for login callbacks
 	LibpurpleAdapter::assignIMLoginState(this);
 	// Register for connection changed callbacks.
 	ConnectionState::setLoginStateCallback(this);
-
-	// listener for process finished
-	m_listener = listener;
 }
 
 IMLoginState::~IMLoginState()
@@ -58,28 +52,17 @@ IMLoginState::~IMLoginState()
 	ConnectionState::setLoginStateCallback(NULL);
 }
 
-void IMLoginState::ProcessStarting()
-{
-	// tell listener we are now active
-	m_listener->ProcessStarting();
-}
-
 void IMLoginState::handlerDone(IMLoginStateHandlerInterface* handler)
 {
 	// this gets called from "handler's" destructor
 	if (m_signalHandler != handler)
 	{
-		// can happen if we created more than one handler because connection changed. I think this is OK
-		MojLogWarning(IMServiceApp::s_log, _T("handlerDone: m_signalHandler doesn't match handler. handler being destroyed. Should be OK."));
+		MojLogError(IMServiceApp::s_log, _T("handlerDone doesn't match. ours=%p, theirs=%p being destroyed"), m_signalHandler, handler);
 	}
 	else
 	{
-		MojLogInfo(IMServiceApp::s_log, _T("handlerDone: m_signalHandler being destroyed."));
 		m_signalHandler = NULL;
 	}
-
-	// tell listener the process is done. doesn't matter if it is theirs or ours - just decrementing the active process count
-	m_listener->ProcessDone();
 }
 
 void IMLoginState::loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload)
@@ -93,11 +76,9 @@ void IMLoginState::loginForTesting(MojServiceMessage* serviceMsg, const MojObjec
  */
 MojErr IMLoginState::handleLoginStateChange(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-	// OK to orphan an existing handler? I think so because we need one for each state change and there could be multiple accounts.
-	// refcounted pointer should handle eventually deleting the old one
+	// we should not be orphaning an existing handler...
 	if (NULL != m_signalHandler) {
-		// We can get here if libpurple called us as a result of a disconnection and the handler was created in loginResult
-		MojLogWarning(IMServiceApp::s_log, _T("handleLoginStateChange: called when signal handler already existed. "));
+		MojLogError(IMServiceApp::s_log, _T("handleLoginStateChange: called when signal handler already existed."));
 	}
 
 	m_signalHandler = new IMLoginStateHandler(m_service, m_loginStateRevision, this);
@@ -125,23 +106,10 @@ void IMLoginState::loginResult(const char* serviceName, const char* username, Lo
 {
 	if (m_signalHandler == NULL)
 	{
-		// We can get here if libpurple called us as a result of a disconnection
 		MojLogWarning(IMServiceApp::s_log, _T("loginResult needed to create a signal handler"));
-
-		// in this case, we want to create our own signal handler just to handle the login result and not have it re-used
-		// later by the login state machine handler or another libpurple disconnect if there are multiple accounts.
-		// In most cases, loginResult does not connect any slots to the signal handler, which means
-		// that even though it is a MojRefCounted object, it will not get deleted because there is no MojRefCountedPtr pointing at it.
-		// This causes our active process count to be off. We need out own ref here
-		MojRefCountedPtr<IMLoginStateHandler> loginResultHandler = new IMLoginStateHandler(m_service, m_loginStateRevision, this);
-		loginResultHandler->loginResult(serviceName, username, type, loggedOut, errCode, noRetry);
-
-		// this will delete the handler if there are no open slots
-		loginResultHandler = NULL;
+		m_signalHandler = new IMLoginStateHandler(m_service, m_loginStateRevision, this);
 	}
-	else {
-		m_signalHandler->loginResult(serviceName, username, type, loggedOut, errCode, noRetry);
-	}
+	m_signalHandler->loginResult(serviceName, username, type, loggedOut, errCode, noRetry);
 }
 
 /*
@@ -209,6 +177,7 @@ void IMLoginState::putLoginStateData(const MojString& key, LoginStateData& newSt
 IMLoginStateHandler::IMLoginStateHandler(MojService* service, MojInt64 loginStateRevision, IMLoginState* loginStateController)
 : m_activityAdoptSlot(this, &IMLoginStateHandler::activityAdoptResult),
   m_activityCompleteSlot(this, &IMLoginStateHandler::activityCompleteResult),
+  m_setWatchSlot(this, &IMLoginStateHandler::setWatchResult),
   m_loginStateQuerySlot(this, &IMLoginStateHandler::loginStateQueryResult),
   m_getCredentialsSlot(this, &IMLoginStateHandler::getCredentialsResult),
   m_updateLoginStateSlot(this, &IMLoginStateHandler::updateLoginStateResult),
@@ -226,8 +195,6 @@ IMLoginStateHandler::IMLoginStateHandler(MojService* service, MojInt64 loginStat
   m_workingLoginStateRev(loginStateRevision),
   m_buddyListConsolidator(NULL)
 {
-	// tell listener we are now active
-	m_loginStateController->ProcessStarting();
 }
 
 
@@ -240,25 +207,15 @@ IMLoginStateHandler::~IMLoginStateHandler()
 void IMLoginStateHandler::loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload)
 {
 	LoginParams loginParams;
-	MojString username, password;
-	MojErr err = payload.getRequired(_T("username"), username);
-	if (err) {
-		serviceMsg->replyError(err, "missing username");
-		return;
-	}
-	err = payload.getRequired(_T("password"), password);
-	if (err) {
-		serviceMsg->replyError(err, "missing password");
-		return;
-	}
 
-	loginParams.username = username.data();
-	loginParams.password = password.data();
-	loginParams.serviceName = "type_gtalk";
+	// your username and password go here!
+	loginParams.username = "xxx@aol.com";
+	loginParams.password = "xxx";
+	loginParams.serviceName = "type_aim";
 
 	loginParams.availability = PalmAvailability::ONLINE;
 	loginParams.customMessage = "";
-	loginParams.connectionType = "wifi";
+	loginParams.connectionType = "wan";
 	loginParams.localIpAddress = NULL;
 	loginParams.accountId = "";
 	LibpurpleAdapter::login(&loginParams, m_loginStateController);
@@ -335,7 +292,7 @@ MojErr IMLoginStateHandler::handleConnectionChanged(const MojObject payload)
 	{
 		//NOTE don't need to mark the buddies as offline since we're just switching to WiFi
 
-		MojLogInfo(IMServiceApp::s_log, _T("handleConnectionChanged wan off, but wifi on. setting all wan accounts on ipAddress %s offline and switching to wifi"), ConnectionState::wanIpAddress().data() );
+		MojLogInfo(IMServiceApp::s_log, _T("handleConnectionChanged wan off, but wifi on. setting all wan accounts offline"));
 		MojDbQuery query;
 		query.where("ipAddress", MojDbQuery::OpEq, ConnectionState::wanIpAddress());
 		query.from(IM_LOGINSTATE_KIND);
@@ -345,13 +302,13 @@ MojErr IMLoginStateHandler::handleConnectionChanged(const MojObject payload)
 		err = m_dbClient.merge(m_ignoreUpdateLoginStateSlot, query, mergeProps);
 
 		// Also tell libpurple to disconnect
-		LibpurpleAdapter::deviceConnectionClosed(false, ConnectionState::wanIpAddress().data());
+		LibpurpleAdapter::deviceConnectionClosed(false, ConnectionState::wanIpAddress());
 	}
 	else if (wifiConnected == false)
 	{
 		//NOTE don't need to mark the buddies as offline since we're just switching to WAN
 
-		MojLogInfo(IMServiceApp::s_log, _T("handleConnectionChanged wifi off, setting all wifi accounts on ipAddress %s offline and switching to wan"),ConnectionState::wifiIpAddress().data() );
+		MojLogInfo(IMServiceApp::s_log, _T("handleConnectionChanged wifi off, setting them offline"));
 		MojDbQuery query;
 		query.where("ipAddress", MojDbQuery::OpEq, ConnectionState::wifiIpAddress());
 		query.from(IM_LOGINSTATE_KIND);
@@ -361,7 +318,7 @@ MojErr IMLoginStateHandler::handleConnectionChanged(const MojObject payload)
 		err = m_dbClient.merge(m_ignoreUpdateLoginStateSlot, query, mergeProps);
 
 		// Also tell libpurple to disconnect
-		LibpurpleAdapter::deviceConnectionClosed(false, ConnectionState::wifiIpAddress().data());
+		LibpurpleAdapter::deviceConnectionClosed(false, ConnectionState::wifiIpAddress());
 	}
 
 	return MojErrNone;
@@ -397,16 +354,15 @@ MojErr IMLoginStateHandler::activityAdoptResult(MojObject& payload, MojErr resul
 
 MojErr IMLoginStateHandler::activityCompleteResult(MojObject& payload, MojErr resultErr)
 {
-	if (resultErr != MojErrNone)
-	{
-		MojString error;
-		MojErrToString(resultErr, error);
-		MojLogError(IMServiceApp::s_log, _T("IMLoginStateHandler::activityCompleteResult. error %d - %s"), resultErr, error.data());
-	}
-	MojLogInfo(IMServiceApp::s_log, _T("IMLoginStateHandler activity completed. err = %d"), resultErr);
-
+	//TODO: log if there are errors
 	m_activityAdoptSlot.cancel();
 	//setWatch();
+	return MojErrNone;
+}
+
+MojErr IMLoginStateHandler::setWatchResult(MojObject& payload, MojErr resultErr)
+{
+	//TODO: log if there are errors
 	return MojErrNone;
 }
 
@@ -436,12 +392,6 @@ MojErr IMLoginStateHandler::loginStateQueryResult(MojObject& payload, MojErr res
 
 MojErr IMLoginStateHandler::updateLoginStateResult(MojObject& payload, MojErr resultErr)
 {
-	if (resultErr != MojErrNone)
-	{
-		MojString error;
-		MojErrToString(resultErr, error);
-		MojLogError(IMServiceApp::s_log, _T("ERROR IMLoginStateHandler::updateLoginStateResult. error %d - %s"), resultErr, error.data());
-	}
 	// DB state is updated so complete the activity and reset the watch so it
 	// can fire again and start the next state transition
 	completeAndResetWatch();
@@ -456,7 +406,7 @@ MojErr IMLoginStateHandler::ignoreUpdateLoginStateResult(MojObject& payload, Moj
 	{
 		MojString error;
 		MojErrToString(resultErr, error);
-		MojLogError(IMServiceApp::s_log, _T("ERROR IMLoginStateHandler::ignoreUpdateLoginStateResult. error %d - %s"), resultErr, error.data());
+		MojLogError(IMServiceApp::s_log, _T("ERROR Intermediate UpdateLoginState. error %d - %s"), resultErr, error.data());
 	}
 	return MojErrNone;
 }
@@ -473,8 +423,10 @@ MojErr IMLoginStateHandler::handleBadCredentials(const MojString& serviceName, c
 	mergeProps.putInt("availability", PalmAvailability::OFFLINE);
 	mergeProps.putString("state", LOGIN_STATE_OFFLINE);
 	mergeProps.putString("ipAddress", "");
-	mergeProps.putString("errorCode", err);
-
+	if (err != NULL)
+	{
+		mergeProps.putString("errorCode", err);
+	}
 	m_dbClient.merge(m_updateLoginStateSlot, query, mergeProps);
 
 	// update the syncState record for this account so account dashboard can display errors
@@ -490,7 +442,7 @@ MojErr IMLoginStateHandler::handleBadCredentials(const MojString& serviceName, c
 		syncStateHandler->updateSyncStateRecord(serviceName, accountId, LoginCallbackInterface::LOGIN_FAILED, err);
 	}
 	else {
-		MojLogError(IMServiceApp::s_log, _T("handleBadCredentials: could not find account Id in cached login states map. No syncState record created."));
+		MojLogError(IMServiceApp::s_log, _T("loginResult: could not find account Id in cached login states map. No syncState record created."));
 		// can we do anything here??
 	}
 
@@ -499,11 +451,7 @@ MojErr IMLoginStateHandler::handleBadCredentials(const MojString& serviceName, c
 
 MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resultErr)
 {
-	MojLogError(IMServiceApp::s_log, _T("getCredentialsResult:  resultErr:%d  wanConnected:%d  wifiConnected:%d"),resultErr, ConnectionState::wanConnected(),ConnectionState::wifiConnected());
-
-	// can't log this...
-	//IMServiceHandler::logMojObjectJsonString(_T("getCredentialsResult - payload: %s"), payload);
-
+	MojLogError(IMServiceApp::s_log, _T("getCredentialsResult:  wanConnected:%d  wifiConnected:%d"),ConnectionState::wanConnected(),ConnectionState::wifiConnected());
 	if (resultErr != MojErrNone)
 	{
 		// Failed to get credentials, so log the issue and set the state to offlnie
@@ -514,10 +462,7 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 		MojErrToString(resultErr, error);
 		MojLogError(IMServiceApp::s_log, _T("Failed to get credentials on %s. error %d - %s"), serviceName.data(), resultErr, error.data());
 
-		// Accounts service returns string values for error code instead of integers ie "errorCode": "CREDENTIALS_NOT_FOUND",
-		// so we can't detect different error conditions. Treat all errors as missing credentials
-		// Note in the "CREDENTIALS_NOT_FOUND" case, even though returnValue is false, Mojo framework returns us resultErr = 0!! Drops through to empty password case
-		handleBadCredentials(serviceName, username, ERROR_CREDENTIALS_NOT_FOUND);
+		handleBadCredentials(serviceName, username, ERROR_BAD_PASSWORD);
 	}
 	// About to login so this is the time to make a final check for internet connection
 	else if (!ConnectionState::hasInternetConnection())
@@ -530,12 +475,10 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 	else
 	{
 		//TODO: get rid of m_workingLoginState: what in the credentials response can tie it back to its corresponding m_loginState?
-		MojString serviceName = m_workingLoginState.getServiceName();
-		MojString username = m_workingLoginState.getUsername();
-
+		
 		// Now get the login params and request login
 		MojObject credentials;
-    	MojErr err = payload.getRequired("credentials", credentials);
+		MojErr err = payload.getRequired("credentials", credentials);
 
 		LoginParams loginParams;
 		MojString password;
@@ -543,51 +486,50 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 		if (password.empty())
 		{
 			MojLogError(IMServiceApp::s_log, _T("Password is empty. I think this is not ok."));
-			handleBadCredentials(serviceName, username, ERROR_CREDENTIALS_NOT_FOUND);
 		}
-		else {
-			// got credentials
 
-			MojString connectionType, localIpAddress;
-			ConnectionState::getBestConnection(connectionType, localIpAddress);
-			// We're about to log in, so set the state to "logging in"
-			updateLoginStateNoResponse(serviceName, username, LOGIN_STATE_LOGGING_ON, localIpAddress.data());
+		MojString serviceName = m_workingLoginState.getServiceName();
+		MojString username = m_workingLoginState.getUsername();
 
-			loginParams.password = password.data();
-			loginParams.accountId = m_workingLoginState.getAccountId().data();
-			loginParams.username = username.data();
-			loginParams.serviceName = serviceName.data();
-			loginParams.availability = m_workingLoginState.getAvailability();
-			loginParams.customMessage = m_workingLoginState.getCustomMessage();
-			loginParams.connectionType = connectionType.data();
-			loginParams.localIpAddress = localIpAddress.data();
+		MojString connectionType, localIpAddress;
+		ConnectionState::getBestConnection(connectionType, localIpAddress);
+		// We're about to log in, so set the state to "logging in"
+		updateLoginStateNoResponse(serviceName, username, LOGIN_STATE_LOGGING_ON, localIpAddress.data());
 
-			// Login may be asynchronous with the result callback in loginResult().
-			// Also deal with immediate results
-			LibpurpleAdapter::LoginResult result;
-			result = LibpurpleAdapter::login(&loginParams, m_loginStateController);
-			if (result == LibpurpleAdapter::FAILED)
-			{
-				handleBadCredentials(serviceName, username, ERROR_GENERIC_ERROR);
-			}
-			if (result == LibpurpleAdapter::INVALID_CREDENTIALS)
-			{
-				handleBadCredentials(serviceName, username, ERROR_AUTHENTICATION_FAILED);
-			}
-			else if (result == LibpurpleAdapter::ALREADY_LOGGED_IN)
-			{
-				MojDbQuery query;
-				query.where("serviceName", MojDbQuery::OpEq, serviceName);
-				query.where("username", MojDbQuery::OpEq, username);
-				query.from(IM_LOGINSTATE_KIND);
-				MojObject mergeProps;
-				mergeProps.putString("state", LOGIN_STATE_ONLINE);
-				mergeProps.putString("ipAddress", localIpAddress);
-				m_dbClient.merge(m_updateLoginStateSlot, query, mergeProps);
+		loginParams.password = password.data();
+		loginParams.accountId = m_workingLoginState.getAccountId().data();
+		loginParams.username = username.data();
+		loginParams.serviceName = serviceName.data();
+		loginParams.availability = m_workingLoginState.getAvailability();
+		loginParams.customMessage = m_workingLoginState.getCustomMessage();
+		loginParams.connectionType = connectionType.data();
+		loginParams.localIpAddress = localIpAddress.data();
 
-				// update any imcommands that are in the "waiting-for-connection" status
-				moveWaitingCommandsToPending();
-			}
+		// Login may be asynchronous with the result callback in loginResult().
+		// Also deal with immediate results
+		LibpurpleAdapter::LoginResult result;
+		result = LibpurpleAdapter::login(&loginParams, m_loginStateController);
+		if (result == LibpurpleAdapter::FAILED)
+		{
+			handleBadCredentials(serviceName, username, ERROR_GENERIC_ERROR);
+		}
+		if (result == LibpurpleAdapter::INVALID_CREDENTIALS)
+		{
+			handleBadCredentials(serviceName, username, ERROR_AUTHENTICATION_FAILED);
+		}
+		else if (result == LibpurpleAdapter::ALREADY_LOGGED_IN)
+		{
+			MojDbQuery query;
+			query.where("serviceName", MojDbQuery::OpEq, serviceName);
+			query.where("username", MojDbQuery::OpEq, username);
+			query.from(IM_LOGINSTATE_KIND);
+			MojObject mergeProps;
+			mergeProps.putString("state", LOGIN_STATE_ONLINE);
+			mergeProps.putString("ipAddress", localIpAddress);
+			m_dbClient.merge(m_updateLoginStateSlot, query, mergeProps);
+
+			// update any imcommands that are in the "waiting-for-connection" status
+			moveWaitingCommandsToPending();
 		}
 	}
 	return MojErrNone;
@@ -726,12 +668,21 @@ MojErr IMLoginStateHandler::moveCommandsToPendingResult(MojObject& payload, MojE
 
 MojErr IMLoginStateHandler::queryLoginState()
 {
-	MojDbQuery query;
-	getLoginStateQuery(query);
-	MojErr err = m_dbClient.find(m_loginStateQuerySlot, query, false, false);
+	MojRefCountedPtr<MojServiceRequest> req;
+	MojErr err = m_service->createRequest(req);
 	if (err)
 	{
-		MojLogError(IMServiceApp::s_log, _T("handleLoginStateChange query failed"));
+		MojLogError(IMServiceApp::s_log, _T("IMLoginStateHandler: create activity manager adopt request failed"));
+	}
+	else
+	{
+		MojDbQuery query;
+		getLoginStateQuery(query);
+		err = m_dbClient.find(m_loginStateQuerySlot, query, false, false);
+		if (err)
+		{
+			MojLogError(IMServiceApp::s_log, _T("handleLoginStateChange query failed"));
+		}
 	}
 
 	return err;
@@ -779,27 +730,9 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 		bool found = m_loginStateController->getLoginStateData(newState.getKey(), cachedState);
 		if (!found)
 		{
-			 // Key not found - we must set the state of offline in this case, since this indicates the process just started
-			 // then let it proceed as normal for login
-			 // needed for the case of a crash, reboot or battery pull while the service is logged in. We will need to go through the
-			 // login process again when service comes back up even though state may have been saved as online
-			 MojString offlineState;
-			 offlineState.assign(LOGIN_STATE_OFFLINE);
-			 MojLogWarning(IMServiceApp::s_log, _T("processLoginStates Key not found, so assign the cache state to offline"));
-			 cachedState = newState;
-			 cachedState.setState(offlineState);
-
-			 // There are 3 possible cases here. We need to make sure something happens in each case.
-			 // if the system crashed, rebooted or powered off while we were online, then system will reboot and our watch will fire because the watch revision number
-			 // gets set back to zero on reboot. In this case availability is online, DB state is online and we want to go through login, so set state to offline.
-			 // If im service crashes, there is no reboot and then our watch never fires, so user will have to toggle availability to offline and then back online to get back in sync. In
-			 // this case availability first comes in as offline, DB state is online and we need to go through logoff, so leave state online
-			 // In the normal case where we shut down because all the accounts were logged off and now are being launched to change availability, the DB state will already be offline
-			 if (newState.getAvailability() != PalmAvailability::OFFLINE) {
-				 // set newstate offline to force login
-				 newState.setState(offlineState);
-			 }
-
+			// Key not found, so assign the new state to the cached state and
+			// let it proceed as normal for login (most likely) or logout
+			cachedState = newState;
 		}
 
 		logLoginStates(cachedState, newState);
@@ -839,7 +772,7 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 			else
 			{
 				// Logout returns false if the account is already logged out.
-				// update newState to offline to reflect the changed state
+				// TODO: update newState to offline to reflect the changed state
 				updateLoginStateNoResponse(newState.getServiceName(), newState.getUsername(), LOGIN_STATE_OFFLINE, NULL);
 				// Make the buddies for this account look offline to us
 				markBuddiesAsOffline(newState.getAccountId());
@@ -922,7 +855,6 @@ MojErr IMLoginStateHandler::getBuddyLists(const MojString& serviceName, const Mo
 	return MojErrNone;
 }
 
-
 MojErr IMLoginStateHandler::consolidateAllBuddyLists()
 {
 	if (m_buddyListConsolidator == NULL)
@@ -956,7 +888,7 @@ MojErr IMLoginStateHandler::consolidateAllBuddyLists()
 
 MojErr IMLoginStateHandler::adoptActivity()
 {
-	MojLogInfo(IMServiceApp::s_log, _T("Adopting activityId: %lld."), m_activityId);
+	MojLogInfo(IMServiceApp::s_log, _T("Adopting activityId: %llu."), m_activityId);
 	MojErr err = MojErrNone;
 	if (m_activityId > 0)
 	{
@@ -989,7 +921,7 @@ MojErr IMLoginStateHandler::adoptActivity()
 
 MojErr IMLoginStateHandler::completeAndResetWatch()
 {
-	MojLogInfo(IMServiceApp::s_log, _T("Completing activityId: %lld."), m_activityId);
+	//MojLogInfo(IMServiceApp::s_log, _T("Completing activityId: %llu."), m_activityId);
 	MojErr err = MojErrNone;
 
 	// If there is an active activity, mark it as completed with the "restart" flag
@@ -1022,26 +954,85 @@ MojErr IMLoginStateHandler::completeAndResetWatch()
 		err = completeReq->send(m_activityCompleteSlot, "com.palm.activitymanager", "complete", completeParams, 1);
 		MojErrCheck(err);
 
-		// reset id so we don't re-use it
-		m_activityId = -1;
+		m_activityId = -1; // clear this out so we don't keep using it.
 	}
 	else
 	{
-		// this can happen if we got logged out from libpurple because user logged in somewhere else in which case our watch never fired
-		MojLogWarning(IMServiceApp::s_log, _T("completeAndResetWatch - no activity id to complete"));
+		MojLogError(IMServiceApp::s_log, _T("completeAndResetWatch - no activity id to complete"));
 //		setWatch();
 	}
 
 	return err;
 }
 
+/*
+ * NOT USED
+ */
+//MojErr IMLoginStateHandler::setWatch()
+//{
+//	MojLogError(IMServiceApp::s_log, _T("setWatch 1"));
+//	MojLogInfo(IMServiceApp::s_log, _T("Starting new loginstate watch"));
+//	MojErr err = MojErrNone;
+//
+//	// Reset the activity watch
+//	MojRefCountedPtr<MojServiceRequest> watchReq;
+//	err = m_service->createRequest(watchReq);
+//	MojErrCheck(err);
+//	MojLogDebug(IMServiceApp::s_log, _T("com.palm.activitymanager/create"));
+//
+//	MojLogError(IMServiceApp::s_log, _T("setWatch 2"));
+//	// A lot of the activity object is static data, so fill that in using hardcoded strings, then add the "trigger"
+//	// Properties within the "activity" object
+//
+//	// Build out the actvity's trigger
+//	const char* triggerJson =
+//			"{\"key\":\"fired\","
+//			"\"method\":\"palm://com.palm.db/watch\","
+//			"}";
+//	MojObject trigger;
+//	trigger.fromJson(triggerJson);
+//	MojDbQuery dbQuery;
+//	getLoginStateQuery(dbQuery);
+//	MojObject queryDetails;
+//	dbQuery.toObject(queryDetails);
+//	MojObject query;
+//	query.put("query", queryDetails);
+//	trigger.put("params", query);
+//
+//	// Build out the activity
+//	const char* activityJson =
+//			"{\"name\":\"Libpurple loginstate\","
+//			"\"description\":\"Watch for changes to the imloginstate\","
+//			"\"type\": {\"foreground\": true},"
+//			"\"callback\":{\"method\":\"palm://com.palm.imlibpurple/loginStateChanged\"}"
+//			"}";
+//	MojObject activity;
+//	activity.fromJson(activityJson);
+//	activity.put("trigger", trigger);
+//
+//	// requirements for internet:true
+//	MojObject requirements;
+//	err = requirements.put("internet", true);
+//	MojErrCheck(err);
+//	err = activity.put("requirements", requirements);
+//	MojErrCheck(err);
+//
+//	MojObject activityCreateParams;
+//	activityCreateParams.putBool("start", true);
+//	activityCreateParams.put("activity", activity);
+//	//TODO should this be Unlimited or just one-off???
+//	err = watchReq->send(m_setWatchSlot, "com.palm.activitymanager", "create", activityCreateParams, MojServiceRequest::Unlimited);
+//	MojErrCheck(err);
+//
+//	return err;
+//}
+
+
 // This is a callback from the LibpurpleAdapter for notification of login events (success, failed, disconnected)
-// Note: noRetry=true means this is a permanent state and don't retry the login. noRetry=false means keep retrying if the login failed (temporary failure)
 void IMLoginStateHandler::loginResult(const char* serviceName, const char* username, LoginCallbackInterface::LoginResult type, bool loggedOut, const char* errCode, bool noRetry)
 {
 	MojErr err = MojErrNone;
-	MojLogInfo(IMServiceApp::s_log, _T("loginResult: user %s, service %s, result=%d, code=%s, loggedOut=%d, noRetry=%d, m_activityId=%lld."),
-			    username, serviceName, type, errCode, loggedOut, noRetry, m_activityId);
+	MojLogInfo(IMServiceApp::s_log, _T("loginResult: user %s, service %s, result=%d, code=%s, loggedOut=%d, noRetry=%d."), username, serviceName, type, errCode, loggedOut, noRetry);
 
 	MojString serviceNameMoj, usernameMoj, errorCodeMoj;
 	if (errCode == NULL)
@@ -1052,26 +1043,6 @@ void IMLoginStateHandler::loginResult(const char* serviceName, const char* usern
 	else
 	{
 		errorCodeMoj.assign(errCode);
-	}
-
-	// we don't want to retry forever - there are cases where connection manager and libpurple don't agree on what a valid connection is and a libpurple network error can sometimes be permanent
-	// (for example if the connection does not have the correct security level for authentication as in mobile hotSpot)
-	if (noRetry) {
-		// we are now entering a permanent state, so reset the retry count for next time - happens for successful login or logout or a non-network error from liburple
-		m_loginStateController->resetRetryCount();
-	}
-	else {
-		// happens for login_failed or timeout and we had a network error
-		if (m_loginStateController->hitMaxRetry()) {
-			// done retrying
-			m_loginStateController->resetRetryCount();
-			noRetry = true;
-			MojLogError(IMServiceApp::s_log, _T("loginResult: max retries exceeded. giving up login attempts for %s on %s"), username, serviceName);
-		}
-		else {
-			m_loginStateController->incrementRetryCount();
-			MojLogInfo(IMServiceApp::s_log, _T("loginResult: incrementing retry count to %i."), m_loginStateController->getRetryCount());
-		}
 	}
 
 	// Want to merge the new state and errorCode values for the given username and serviceName
@@ -1087,11 +1058,10 @@ void IMLoginStateHandler::loginResult(const char* serviceName, const char* usern
 	{
 		if (type == LoginCallbackInterface::LOGIN_SUCCESS)
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("loginResult: ignoring noRetry==true because type==login_success"));
+			MojLogWarning(IMServiceApp::s_log, _T("loginResult WARNING: ignoring noRetry==true because type==login_success"));
 		}
 		else
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("loginResult: noRetry is true - setting availability offline"));
 			mergeProps.putInt("availability", PalmAvailability::OFFLINE);
 		}
 	}
@@ -1101,11 +1071,9 @@ void IMLoginStateHandler::loginResult(const char* serviceName, const char* usern
 	// admits the connection is lost so the following prevents it from immediately
 	// logging off which then triggers the db watch, causing a login to start and
 	// quickly get stopped.
-	// Only do this if we were not in the process of handing a regular login (we have adopted a loginState activity (ie libpurple disconnected us).
-	// Otherwise we need to go through the normal flow to update the watch
-	if (type == LoginCallbackInterface::LOGIN_FAILED && noRetry == false && m_activityId < 0)
+	if (type == LoginCallbackInterface::LOGIN_FAILED && noRetry == false)
 	{
-		MojRefCountedPtr<IMLoginFailRetryHandler> handler(new IMLoginFailRetryHandler(m_service));
+		IMLoginFailRetryHandler* handler = new IMLoginFailRetryHandler(m_service);
 		mergeProps.putString("state", LOGIN_STATE_OFFLINE);
 		mergeProps.put("errorCode", errorCodeMoj);
 		handler->startTimerActivity(serviceNameMoj, query, mergeProps);
@@ -1134,13 +1102,13 @@ void IMLoginStateHandler::loginResult(const char* serviceName, const char* usern
 
 	// update the syncState record for this account so account dashboard can display errors
 	// first we need to find our account id
-	LoginStateData loginState;
+	LoginStateData state;
 	MojString accountId, service, user;
 	service.assign(serviceName);
 	user.assign(username);
-	bool foundLoginState = m_loginStateController->getLoginStateData(service, user, loginState);
-	if (foundLoginState) {
-		accountId = loginState.getAccountId();
+	bool found = m_loginStateController->getLoginStateData(service, user, state);
+	if (found) {
+		accountId = state.getAccountId();
 		MojRefCountedPtr<IMLoginSyncStateHandler> syncStateHandler(new IMLoginSyncStateHandler(m_service));
 		syncStateHandler->updateSyncStateRecord(serviceName, accountId, type, errorCodeMoj);
 	}
@@ -1226,7 +1194,7 @@ MojErr LoginStateData::assignFromDbRecord(MojObject& record)
 	record.get("username", m_username, found);
 	record.get("accountId", m_accountId, found);
 	record.get("serviceName", m_serviceName, found);
-	err = record.get("state", m_state, found);
+	err = record.get("state", m_state, found);	
 	if (err != MojErrNone || found == false)
 	{
 		MojLogError(IMServiceApp::s_log, _T("LoginStateData::getFromDbRecord missing state, assuming offline."));
@@ -1242,7 +1210,6 @@ MojErr LoginStateData::assignFromDbRecord(MojObject& record)
 		MojLogError(IMServiceApp::s_log, _T("LoginStateData::getFromDbRecord missing availability, assuming offline."));
 		m_availability = PalmAvailability::OFFLINE;
 	}
-
 	return err;
 }
 
@@ -1281,13 +1248,14 @@ IMLoginFailRetryHandler::IMLoginFailRetryHandler(MojService* service)
   m_activityCompleteSlot(this, &IMLoginFailRetryHandler::activityCompleteResult),
   m_service(service),
   m_dbClient(service, MojDbServiceDefs::ServiceName),
+  m_tempdbClient(service, MojDbServiceDefs::TempServiceName),
   m_activityId(-1)
 {
 }
 
 MojErr IMLoginFailRetryHandler::startTimerActivity(const MojString& serviceName, const MojDbQuery& query, const MojObject& mergeProps)
 {
-	MojLogInfo(IMServiceApp::s_log, _T("IMLoginFailRetryHandler::startTimerActivity"));
+	//MojLogError(IMServiceApp::s_log, _T("**********IMLoginFailRetryHandler::startTimerActivity"));
 	MojRefCountedPtr<MojServiceRequest> req;
 	MojErr err = m_service->createRequest(req);
 	if (err != MojErrNone)
@@ -1350,78 +1318,38 @@ MojErr IMLoginFailRetryHandler::startTimerActivity(const MojString& serviceName,
 // {"errorCode":17,"errorText":"Activity with that name already exists","returnValue":false}
 MojErr IMLoginFailRetryHandler::activitySubscriptionResult(MojObject& result, MojErr err)
 {
-	// log the parameters
-	IMServiceHandler::logMojObjectJsonString(_T("IMLoginFailRetryHandler::activitySubscriptionResult: %s"), result);
+	MojLogDebug(IMServiceApp::s_log, _T("IMLoginFailRetryHandler::activitySubscriptionResult begin err=%d"), err);
 
-	if (MojErrNone != err) {
-		MojString error;
-		MojErrToString(err, error);
-		MojLogError(IMServiceApp::s_log, _T("IMLoginFailRetryHandler::activitySubscriptionResult failed: error %d - %s"), err, error.data());
-		// we created this slot with unlimited responses, so we have to explicitly cancel it, unless there is another activity of this name already, in which case
-		// we get here again
-		if (MojErrExists != err) { // err 17 = "Activity with that name already exists"
-			m_activitySubscriptionSlot.cancel();
-		}
-	}
-	else {
-		MojString event;
-		if (result.getRequired(_T("event"), event) == MojErrNone)
+	MojString event;
+	if (err == MojErrNone && result.getRequired(_T("event"), event) == MojErrNone)
+	{
+		if (event == "start")
 		{
-			if (event == "start")
-			{
-				bool found = result.get("activityId", m_activityId);
-				if (!found)
-					MojLogError(IMServiceApp::s_log, _T("activitySubscriptionResult: parameter has no activityId"));
-				else err = m_dbClient.merge(m_dbmergeSlot, m_query, m_mergeProps);
-				if (!found || err) {
-					MojString error;
-					MojErrToString(err, error);
-					MojLogError(IMServiceApp::s_log, _T("activitySubscriptionResult merge failed: error %d - %s"), err, error.data());
-					m_activitySubscriptionSlot.cancel();
-				}
-				else {
-					MojLogInfo(IMServiceApp::s_log, _T("IMLoginFailRetryHandler::activitySubscriptionResult begin activity %lld."),	m_activityId);
-				}
-				//TODO also markBuddiesAsOffline? Shouldn't need to since lost connection should do that later
-			}
+			bool found = result.get("activityId", m_activityId);
+			if (!found)
+				MojLogError(IMServiceApp::s_log, _T("activitySubscriptionResult: parameter has no activityId"));
+			err = m_dbClient.merge(m_dbmergeSlot, m_query, m_mergeProps);
+			//TODO also markBuddiesAsOffline? Shouldn't need to since lost connection should do that later
 		}
-		// if there is no event we will get here again
 	}
 	return err;
 }
 
 MojErr IMLoginFailRetryHandler::dbmergeResult(MojObject& result, MojErr err)
 {
-	MojLogInfo(IMServiceApp::s_log, _T("IMLoginFailRetryHandler::dbmergeResult for activity %lld. err = %d"), m_activityId, err);
-	if (MojErrNone != err) {
-		MojString error;
-		MojErrToString(err, error);
-		MojLogError(IMServiceApp::s_log, _T("IMLoginFailRetryHandler::dbmergeResult failed: error %d - %s"), err, error.data());
-		// we created this slot with unlimited responses, so we have to explicitly cancel it
-		m_activitySubscriptionSlot.cancel();
-	}
-	else {
+	if (m_activityId > 0)
+	{
 		MojRefCountedPtr<MojServiceRequest> req;
 		err = m_service->createRequest(req);
-		if (!err) {
-			MojObject completeParams;
-			completeParams.put(_T("activityId"), m_activityId);
-			err = req->send(m_activityCompleteSlot, "com.palm.activitymanager", "complete", completeParams, 1);
-		}
-		if (err) {
-			MojString error;
-			MojErrToString(err, error);
-			MojLogError(IMServiceApp::s_log, _T("activitySubscriptionResult::dbmergeResult send request failed: error %d - %s"),
-					err, error.data());
-			m_activitySubscriptionSlot.cancel();
-		}
+		MojObject completeParams;
+		completeParams.put(_T("activityId"), m_activityId);
+		err = req->send(m_activityCompleteSlot, "com.palm.activitymanager", "complete", completeParams, 1);
 	}
 	return err;
 }
 
 MojErr IMLoginFailRetryHandler::activityCompleteResult(MojObject& result, MojErr err)
 {
-	MojLogInfo(IMServiceApp::s_log, _T("IMLoginFailRetryHandler activity %lld completed. err = %d"), m_activityId, err);
 	m_activitySubscriptionSlot.cancel();
 	return err;
 }
@@ -1461,11 +1389,50 @@ void IMLoginSyncStateHandler::updateSyncStateRecord(const char* serviceName, Moj
 
 	// get the capabilityProvidor id from the service
 	// TODO - should read this out of template ID...
-	if (strcmp(serviceName, SERVICENAME_GTALK) == 0) {
+	if (strcmp(serviceName, SERVICENAME_AIM) == 0) {
+		m_capabilityId.assign(CAPABILITY_AIM);
+	}
+	else if (strcmp(serviceName, SERVICENAME_FACEBOOK) == 0){
+		m_capabilityId.assign(CAPABILITY_FACEBOOK);
+	}
+	else if (strcmp(serviceName, SERVICENAME_GTALK) == 0){
 		m_capabilityId.assign(CAPABILITY_GTALK);
 	}
-	else if (strcmp(serviceName, SERVICENAME_AIM) == 0){
-		m_capabilityId.assign(CAPABILITY_AIM);
+	else if (strcmp(serviceName, SERVICENAME_GADU) == 0){
+		m_capabilityId.assign(CAPABILITY_GADU);
+	}
+	else if (strcmp(serviceName, SERVICENAME_GROUPWISE) == 0){
+		m_capabilityId.assign(CAPABILITY_GROUPWISE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0){
+		m_capabilityId.assign(CAPABILITY_ICQ);
+	}
+	else if (strcmp(serviceName, SERVICENAME_JABBER) == 0){
+		m_capabilityId.assign(CAPABILITY_JABBER);
+	}
+	else if (strcmp(serviceName, SERVICENAME_LIVE) == 0){
+		m_capabilityId.assign(CAPABILITY_LIVE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_WLM) == 0){
+		m_capabilityId.assign(CAPABILITY_WLM);
+	}
+	else if (strcmp(serviceName, SERVICENAME_MYSPACE) == 0){
+		m_capabilityId.assign(CAPABILITY_MYSPACE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_QQ) == 0){
+		m_capabilityId.assign(CAPABILITY_QQ);
+	}
+	else if (strcmp(serviceName, SERVICENAME_SAMETIME) == 0){
+		m_capabilityId.assign(CAPABILITY_SAMETIME);
+	}
+	else if (strcmp(serviceName, SERVICENAME_SIPE) == 0){
+		m_capabilityId.assign(CAPABILITY_SIPE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_XFIRE) == 0){
+		m_capabilityId.assign(CAPABILITY_XFIRE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0){
+		m_capabilityId.assign(CAPABILITY_YAHOO);
 	}
 	else {
 		MojLogError(IMServiceApp::s_log, _T("updateSyncStateRecord: unknown serviceName %s. No syncState record created."), serviceName);
@@ -1484,10 +1451,6 @@ void IMLoginSyncStateHandler::updateSyncStateRecord(const char* serviceName, Moj
 			(strcmp(errCode, ERROR_BAD_USERNAME) == 0) ||
 		    (strcmp(errCode, ERROR_BAD_PASSWORD) == 0))	{
 			m_errorCode.assign(ACCOUNT_401_UNAUTHORIZED);
-		}
-		// not displayed yet
-		else if (strcmp(errCode, ERROR_CREDENTIALS_NOT_FOUND) == 0) {
-			m_errorCode.assign(ACCOUNT_CREDENTIALS_NOT_FOUND);
 		}
 	}
 
@@ -1535,7 +1498,7 @@ MojErr IMLoginSyncStateHandler::removeSyncStateResult(MojObject& result, MojErr 
 
 	// bus address
 	MojString busAddr;
-	busAddr.assign(_T("com.palm.imlibpurple"));
+	busAddr.assign(_T("org.webosinternals.imlibpurple"));
 	props.putString(_T("busAddress"), busAddr);
 
 	// sync state - error

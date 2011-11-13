@@ -26,8 +26,6 @@
 #include "IMDefines.h"
 #include "BuddyListConsolidator.h"
 #include "IMServiceApp.h"
-#include "PalmImCommon.h"
-#include "IMServiceHandler.h"
 
 const unsigned int BuddyListConsolidator::CONTACTS_SET = 0x01;
 const unsigned int BuddyListConsolidator::BUDDYSTATUS_SET = 0x02;
@@ -180,7 +178,6 @@ MojErr BuddyListConsolidator::consolidate(const MojObject& contacts, BuddyConsol
 	while (oldContactItr != contacts.arrayEnd())
 	{
 		oldContact = *oldContactItr;
-		//IMServiceHandler::logMojObjectJsonString(_T("BuddyListConsolidator::consolidate oldContact: %s"), oldContact);
 		if (!helper.getUsername(oldContact, username))
 		{
 			MojLogError(IMServiceApp::s_log, _T("consolidate found a buddy with no username. it will be skipped."));
@@ -198,7 +195,7 @@ MojErr BuddyListConsolidator::consolidate(const MojObject& contacts, BuddyConsol
 				}
 				else
 				{
-					MojLogInfo(IMServiceApp::s_log, _T("adding buddy=%s to delete list"), username.data());
+					MojLogDebug(IMServiceApp::s_log, _T("adding buddy=%s to delete list"), username.data());
 					contactsToDelete.push(recordId);
 				}
 			}
@@ -208,12 +205,11 @@ MojErr BuddyListConsolidator::consolidate(const MojObject& contacts, BuddyConsol
 				// buddies to be added to contacts
 				newBuddyList.erase(username);
 				// If there are changes, add the changes to the merge list.
-				contactDiff.clear();
+				contactDiff.clear(); //TODO: validate this clears old properties from the object
 				if (helper.hasChanges(oldContact, newBuddy, contactDiff))
 				{
 					// Note: this assumes the buddyDiff includes the _id
-					MojLogInfo(IMServiceApp::s_log, _T("adding buddy=%s to merge list"), username.data());
-					IMServiceHandler::logMojObjectJsonString(_T("BuddyListConsolidator::consolidate contactDiffs: %s"), contactDiff);
+					MojLogDebug(IMServiceApp::s_log, _T("adding buddy=%s to merge list"), username.data());
 					contactsToMerge.push(contactDiff);
 				}
 			}
@@ -359,7 +355,6 @@ bool ContactConsolidationHelper::hasChanges(MojObject& oldContact, MojObject& ne
 				// TODO: verify with contacts guys
 				MojObject emptyObject;
 				newPhotos.push(emptyObject);
-				MojLogInfo(IMServiceApp::s_log, _T("This new contact %s has no photo. Removing path."), newDisplayName.data());
 			}
 			else
 			{
@@ -367,7 +362,6 @@ bool ContactConsolidationHelper::hasChanges(MojObject& oldContact, MojObject& ne
 				firstPhoto.put("value", newAvatar);
 				firstPhoto.putString("type", "type_square"); // AIM and GTalk generally send small, square-ish images
 				newPhotos.push(firstPhoto);
-				MojLogInfo(IMServiceApp::s_log, _T("Adding localPath %s for new contact %s."), newAvatar.data(), newDisplayName.data());
 			}
 			diffs.put("photos", newPhotos);
 		}
@@ -417,7 +411,6 @@ bool ContactConsolidationHelper::formatForDB(const MojString& accountId, const M
 		{
 			MojObject newImsArray, newImObj;
 			contact.putString("_kind", IM_CONTACT_KIND);
-			contact.putBool("imBuddy", true);
 			contact.put("accountId", accountId);
 			contact.put("remoteId", username); // using username as remote ID since we don't have anything else and this should be unique
 
@@ -469,7 +462,7 @@ bool ContactConsolidationHelper::formatForDB(const MojString& accountId, const M
 			}
 
 			valid = true;
-			MojLogInfo(IMServiceApp::s_log, _T("contact with username=%s is valid"), username.data());
+			MojLogDebug(IMServiceApp::s_log, _T("contact with username=%s is valid"), username.data());
 		}
 	}
 

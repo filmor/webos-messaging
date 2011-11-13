@@ -33,10 +33,7 @@
 #include "db/MojDbServiceClient.h"
 #include "LibpurpleAdapter.h"
 #include "BuddyListConsolidator.h"
-#include "IMServiceApp.h"
 
-// max login attempts on network failures
-#define MAX_RETRY 6
 
 class LoginStateData {
 public:
@@ -97,7 +94,7 @@ public:
  */
 class IMLoginState : public LoginCallbackInterface {
 public:
-	IMLoginState(MojService* service, IMServiceApp::Listener* listener);
+	IMLoginState(MojService* service);
 	~IMLoginState();
 
 	void loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload);
@@ -118,29 +115,12 @@ public:
 
 	void setLoginStateRevision(const MojInt64 revision) { m_loginStateRevision = revision; }
 
-	// tell listener we are starting a process
-	void ProcessStarting();
-
-	// maintain retry count
-	void resetRetryCount() { m_retryCount = 0; }
-	bool hitMaxRetry() {
-		if (m_retryCount >= MAX_RETRY) return true;
-		return false;}
-	void incrementRetryCount() { m_retryCount++; }
-	MojUInt32 getRetryCount() { return m_retryCount; }
-
 private:
 	MojInt64 m_loginStateRevision;
 	// For now just assume 1 active login transaction at a time. Maybe change this later for performance
 	IMLoginStateHandlerInterface* m_signalHandler;
 	MojService*	m_service;
 	std::map<MojString, LoginStateData> m_loginState;
-
-	// listener to tell when we are ready to shutdown
-	IMServiceApp::Listener* m_listener;
-
-	// login retry count for network errors
-	MojUInt32 m_retryCount;
 };
 
 
@@ -169,7 +149,6 @@ public:
 	 * if fullList==true, this is a complete list of buddies
 	 */
 	virtual void fullBuddyListResult(const char* serviceName, const char* username, MojObject& buddyList);
-
 private:
 	MojErr adoptActivity();
 	MojErr completeAndResetWatch();
@@ -192,6 +171,9 @@ private:
 
 	MojDbClient::Signal::Slot<IMLoginStateHandler> m_activityCompleteSlot;
 	MojErr activityCompleteResult(MojObject& result, MojErr err);
+
+	MojDbClient::Signal::Slot<IMLoginStateHandler> m_setWatchSlot;
+	MojErr setWatchResult(MojObject& result, MojErr err);
 
 	MojDbClient::Signal::Slot<IMLoginStateHandler> m_loginStateQuerySlot;
 	MojErr loginStateQueryResult(MojObject& result, MojErr err);
@@ -259,6 +241,7 @@ private:
 
 	MojService*	m_service;
 	MojDbServiceClient m_dbClient;
+	MojDbServiceClient m_tempdbClient;
 
 	MojInt64 m_activityId;
 	MojDbQuery m_query;

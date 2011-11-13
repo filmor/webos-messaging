@@ -32,12 +32,24 @@
 #include <syslog.h>
 #include "PalmImCommon.h"
 #include "core/MojService.h"
+#include "db/MojDbServiceClient.h"
 
-#define CUSTOM_USER_DIRECTORY  "/dev/null"
-#define CUSTOM_PLUGIN_PATH     ""
+#define CUSTOM_USER_DIRECTORY  "/var/preferences/org.webosinternals.messaging"
+#define CUSTOM_PLUGIN_PATH     "/media/cryptofs/apps/usr/palm/applications/org.webosinternals.messaging/plugins"
 #define PLUGIN_SAVE_PREF       "/purple/nullclient/plugins/saved"
 #define UI_ID                  "adapter"
 
+class LibpurplePrefsHandler
+{
+public:	
+	void init();
+	MojErr LoadAccountPreferences(const char* templateId, const char* UserName);
+	
+	MojErr GetServerPreferences(const char* templateId, const char* UserName, char*& ServerName, char*& ServerPort, bool& ServerTLS, bool& BadCert);
+	virtual char* GetStringPreference(const char* Preference, const char* templateId, const char* UserName) = 0;
+	virtual bool GetBoolPreference(const char* Preference, const char* templateId, const char* UserName) = 0;
+	virtual void setaccountprefs(MojString templateId, PurpleAccount* account) = 0;
+};
 
 /*
  * The adapter callbacks interface
@@ -75,7 +87,7 @@ public:
 };
 
 class LibpurpleAdapter
-{
+{	
 public:
 	typedef enum {
 		OK,
@@ -95,6 +107,7 @@ public:
 	static void init();
 	static void assignIMLoginState(LoginCallbackInterface* loginState);
 	static void assignIMServiceHandler(IMServiceCallbackInterface* incomingIMHandler);
+	static void assignPrefsHandler(LibpurplePrefsHandler* PrefsHandler);
 	static LoginResult login(LoginParams* params, LoginCallbackInterface* loginState);
 	// return false if already logged out
 	static bool logout(const char* serviceName, const char* username, LoginCallbackInterface* loginState);
@@ -109,7 +122,6 @@ public:
 	static SendResult sendMessage(const char *serviceName, const char *username, const char *usernameTo, const char *messageText);
 	static bool queuePresenceUpdates(bool enable);
 	static bool deviceConnectionClosed(bool all, const char* ipAddress);
-	static bool allAccountsOffline();
 };
 
 #endif /* LIBPURPLEADAPTER_H_ */

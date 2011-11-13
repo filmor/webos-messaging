@@ -29,32 +29,22 @@
 #include "core/MojGmainReactor.h"
 #include "core/MojReactorApp.h"
 #include "luna/MojLunaService.h"
+#include "IMServiceHandler.h"
 
 class IMServiceApp : public MojReactorApp<MojGmainReactor>
 {
 public:
 	static const char* const ServiceName;
 	static MojLogger s_log;
-	static IMServiceApp* s_instance;
-
-	static void Shutdown();
-
-	// listener interface to keep track of active processes so we can shut down
-	class Listener
-	{
-	public:
-		virtual void ProcessStarting() = 0;
-		virtual void ProcessDone() = 0;
-	};
 
 	IMServiceApp();
 	virtual MojErr open();
 	virtual MojErr close();
 
-
 private:
 	typedef MojReactorApp<MojGmainReactor> Base;
 
+	MojRefCountedPtr<IMServiceHandler> m_handler;
 	MojLunaService  m_service;
 };
 

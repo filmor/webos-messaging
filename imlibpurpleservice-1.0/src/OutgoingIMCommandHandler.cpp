@@ -26,14 +26,12 @@
 #include "OutgoingIMCommandHandler.h"
 #include "db/MojDbQuery.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "IMDefines.h"
 #include "SendOneCommandHandler.h"
 #include "BuddyStatusHandler.h"
-#include "IMMessage.h"
 
-OutgoingIMCommandHandler::OutgoingIMCommandHandler(MojService* service, MojInt64 activityId, IMServiceApp::Listener* listener)
-: OutgoingIMHandler (service, activityId, listener)
+OutgoingIMCommandHandler::OutgoingIMCommandHandler(MojService* service, MojInt64 activityId)
+: OutgoingIMHandler (service, activityId)
 {
 
 }

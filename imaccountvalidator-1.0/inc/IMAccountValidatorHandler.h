@@ -33,9 +33,38 @@
 class IMAccountValidatorApp;
 
 #define PURPLE_AIM "prpl-aim"
+#define PURPLE_FACEBOOK "prpl-bigbrownchunx-facebookim"
+#define PURPLE_GTALK "prpl-jabber"
+#define PURPLE_GADU "prpl-gg"
+#define PURPLE_GROUPWISE "prpl-novell"
 #define PURPLE_ICQ "prpl-icq"
-#define TEMPLATE_AIM "com.palm.aol"
-#define TEMPLATE_ICQ "com.palm.icq"
+#define PURPLE_JABBER "prpl-jabber"
+#define PURPLE_LIVE "prpl-msn"
+#define PURPLE_WLM "prpl-msn-pecan"
+#define PURPLE_MYSPACE "prpl-myspace"
+#define PURPLE_QQ "prpl-qq"
+#define PURPLE_SAMETIME "prpl-meanwhile"
+#define PURPLE_SIPE "prpl-sipe"
+#define PURPLE_XFIRE "prpl-xfire"
+#define PURPLE_YAHOO "prpl-yahoo"
+
+#define TEMPLATE_AIM "org.webosinternals.messaging.aol.aim"
+#define TEMPLATE_FACEBOOK "org.webosinternals.messaging.facebook"
+#define TEMPLATE_GTALK "org.webosinternals.messaging.google.talk"
+#define TEMPLATE_GADU "org.webosinternals.messaging.gadu"
+#define TEMPLATE_GROUPWISE "org.webosinternals.messaging.groupwise"
+#define TEMPLATE_ICQ "org.webosinternals.messaging.icq"
+#define TEMPLATE_JABBER "org.webosinternals.messaging.jabber"
+#define TEMPLATE_LIVE "org.webosinternals.messaging.live"
+#define TEMPLATE_WLM "org.webosinternals.messaging.wlm"
+#define TEMPLATE_MYSPACE "org.webosinternals.messaging.myspace"
+#define TEMPLATE_QQ "org.webosinternals.messaging.qq"
+#define TEMPLATE_SAMETIME "org.webosinternals.messaging.sametime"
+#define TEMPLATE_SIPE "org.webosinternals.messaging.sipe"
+#define TEMPLATE_XFIRE "org.webosinternals.messaging.xfire"
+#define TEMPLATE_YAHOO "org.webosinternals.messaging.yahoo"
+
+
 #define PURPLE_CALLBACK(func) ((PurpleCallback)func)
 #define UI_ID        "accountValidator"
 
@@ -70,6 +99,7 @@ public:
 	static MojChar* getPrplFriendlyUsername(const MojChar* serviceName, const MojChar* username);
 	static MojErr privateLogMojObjectJsonString(const MojChar* format, const MojObject mojObject);
 	static AccountErrorCode getAccountErrorForPurpleError(PurpleConnectionError purpleErr);
+	static void setaccountprefs(MojString templateId, PurpleAccount* account);
 
 	// Libpurple callbacks
 	static void accountLoggedIn(PurpleConnection* gc, gpointer accountValidator);
@@ -102,6 +132,7 @@ private:
 	MojErr validateAccount(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr logout(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr getMojoFriendlyUsername(const char* serviceName, const char* username);
+	MojErr setpreferences(MojServiceMessage* serviceMsg, const MojObject payload);
 
 	IMAccountValidatorApp* m_clientApp;
 

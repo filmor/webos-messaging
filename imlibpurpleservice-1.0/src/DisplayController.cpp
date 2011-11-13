@@ -25,50 +25,36 @@
 
 #include "DisplayController.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "LibpurpleAdapter.h"
 
 DisplayController::DisplayController(MojService* service)
 : m_service(service),
-  m_handler(NULL),
   m_presenceUpdatesDisabled(false)
 {
-	MojLogInfo(IMServiceApp::s_log, "DisplayController constructor");
-}
-
-DisplayController::~DisplayController()
-{
-	MojLogInfo(IMServiceApp::s_log, "DisplayController destructor");
-}
-
-void DisplayController::createSubscription()
-{
 	assert(m_handler == NULL);
-	m_handler = new DisplayController::DisplayControllerSubscription(m_service, this);
+	m_handler = new DisplayController::DisplayControllerSubscription(service, this);
 }
 
 void DisplayController::subscriptionDied()
 {
-	MojLogError(IMServiceApp::s_log, _T("DisplayController::subscriptionDied"));
 	m_handler = NULL;
+	//TODO: resubscribe
 }
 
 
 void DisplayController::handleDisplayEvent(MojObject& result, MojErr err)
 {
-	IMServiceHandler::logMojObjectJsonString(_T("DisplayController::handleDisplayEvent result: %s"), result);
 	bool returnValue = false;
 	result.get("returnValue", returnValue);
 	if (err != MojErrNone || returnValue != true)
 	{
 		// Something is wrong so assume the screen/backlight is on and enable presence.
-		MojLogError(IMServiceApp::s_log, _T("DisplayController::handleDisplayEvent - error %d returned"), err);
 		if (m_presenceUpdatesDisabled != false)
 		{
 			m_presenceUpdatesDisabled = false;
 			LibpurpleAdapter::queuePresenceUpdates(false);
 		}
-    	//TODO: try subscribing again? 
+    	//TODO: try subscribing again? maybe not since subscriptionDied() does that
 	}
 	else
 	{
@@ -100,7 +86,6 @@ void DisplayController::handleDisplayEvent(MojObject& result, MojErr err)
 		if (disableUpdates != m_presenceUpdatesDisabled)
 		{
 			m_presenceUpdatesDisabled = disableUpdates;
-			MojLogInfo(IMServiceApp::s_log, _T("DisplayController::handleDisplayEvent - set queue updates to %d"), m_presenceUpdatesDisabled);
 			LibpurpleAdapter::queuePresenceUpdates(disableUpdates);
 		}
     }
@@ -124,7 +109,7 @@ DisplayController::DisplayControllerSubscription::DisplayControllerSubscription(
 	{
 		MojObject params;
 		err = params.put("subscribe", true);
-		err = req->send(m_connMgrSubscriptionSlot, "com.palm.display","control/status", params, MojServiceRequest::Unlimited);
+		err = req->send(m_connMgrSubscriptionSlot, "palm://com.palm.display","control/status", params, MojServiceRequest::Unlimited);
 		if (err)
 		{
 			MojLogError(IMServiceApp::s_log, _T("DisplayControllerSubscription send request failed"));

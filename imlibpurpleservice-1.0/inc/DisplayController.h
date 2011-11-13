@@ -30,9 +30,9 @@
 #include "core/MojService.h"
 #include "core/MojServiceMessage.h"
 #include "db/MojDbServiceClient.h"
+#include "IMLoginState.h"
 
-class DisplayController
-{
+class DisplayController {
 public:
 	class DisplayControllerSubscription : public MojSignalHandler {
 	public:
@@ -47,9 +47,6 @@ public:
 	};
 
 	DisplayController(MojService* service);
-	virtual ~DisplayController();
-
-	void createSubscription();
 
 private:
 	void handleDisplayEvent(MojObject& result, MojErr err);

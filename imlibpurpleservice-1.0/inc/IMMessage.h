@@ -79,7 +79,7 @@ typedef enum {
 #define XPORT_ERROR_TEXT	        _T("errorText")
 #define XPORT_CAPABILITY_PROVIDERS  _T("capabilityProviders")
 
-#define PALM_DB_IMMESSAGE_KIND 		"com.palm.immessage.libpurple:1"
+#define PALM_DB_IMMESSAGE_KIND 		"org.webosinternals.immessage.libpurple:1"
 
 class IMMessage : public MojRefCounted {
 
