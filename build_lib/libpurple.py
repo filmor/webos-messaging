@@ -25,8 +25,6 @@ def configure(conf):
     conf.check_cfg(package='libxml-2.0', uselib_store='XML',
                    args=['--cflags', '--libs'])
 
-    conf.check_cfg(package='gnutls', uselib_store='GNUTLS')
-
     conf.env.append_value("DEFINES_PURPLE_BUILD", ["HAVE_CONFIG_H",
                                                    "PURPLE_STATIC_PRPL"])
     conf.env.append_value("INCLUDES_PURPLE_BUILD", ["libpurple_config",
