@@ -5,6 +5,7 @@ from util import ant_glob
 # TODO: Get version from path
 VERSION="2.10.0"
 
+# TODO: Set these informations in ctx.env!!
 def get_path():
     try:
         return glob("deps/pidgin-*/libpurple")[-1]
@@ -14,8 +15,9 @@ def get_path():
 def get_protocol_path(name):
     return join(get_path(), "protocols", name)
 
-def options(opt):
-    opt.load('compiler_c')
+def get_plugins_path():
+    return join(get_path(), plugins)
+
 
 def configure(conf):
     # TODO: Create new config environment
@@ -45,7 +47,6 @@ def configure(conf):
     conf.defines = {}
 
 def build(bld):
-
     exclude = ["purple-client.c",
                "purple-client-example.c",
                "nullclient.c",
@@ -55,7 +56,8 @@ def build(bld):
                "win32",
                "tests"]
 
-    use = " ".join(["GLIB XML GNUTLS PURPLE_BUILD BASE"] + bld.env.PROTOCOLS)
+    use = " ".join(["GLIB XML GNUTLS PURPLE_BUILD BASE purple_plugins"]
+                   + bld.env.PROTOCOLS)
 
     bld.shlib(
                 target="purple",
