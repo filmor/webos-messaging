@@ -1,6 +1,5 @@
 from os.path import join
 from glob import glob
-import build_lib
 
 # TODO: Get version from path
 VERSION="2.10.0"
