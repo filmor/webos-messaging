@@ -13,12 +13,6 @@ modules.update(
                 for i in glob("build_lib/*.py")
               )
 
-PURPLE_PATH="libpurple-2.10.0"
-
-subpaths = [
-             PURPLE_PATH,
-           ]
-
 palm_programs = [
         "imaccountvalidator-1.0",
         "imlibpurpleservice-1.0",
@@ -47,11 +41,11 @@ def configure(conf):
     conf.env.INCLUDES = []
     conf.env.CFLAGS = []
     conf.env.CXXFLAGS = []
-    conf.env.append_value('LINKFLAGS_BASE', ['--as-needed', '--no-add-needed'])
+    conf.env.append_value('LINKFLAGS_BASE', [])
     conf.env.append_value("LIBPATH_BASE", ["../libs"])
 
     conf.env.append_value("INCLUDES_GLIB", ["../include"])
-    conf.env.append_value("LIB_GLIB", ["glib-2.0"])
+    conf.env.append_value("LIB_GLIB", ["glib-2.0", "gobject-2.0"])
     conf.env.append_value("LIBPATH_GLIB", ["../libs"])
 
     conf.env.PROTOCOLS = conf.options.protocols.split(",")

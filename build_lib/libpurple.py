@@ -36,7 +36,7 @@ def configure(conf):
     conf.define("SYSCONFDIR", ".")
     conf.define("LIBDIR", ".")
     conf.define("SIZEOF_TIME_T", 4, quote=False)
-    conf.define("STATIC_PROTO_INIT", "", quote=False)
+    conf.define("STATIC_PROTO_INIT", "void static_proto_init() {}", quote=False)
     conf.define("HAVE_CONFIG_H", 1, quote=False)
     conf.define("HAVE_CYRUS_SASL", 1, quote=False)
     conf.define("_GNU_SOURCE", 1, quote=False)

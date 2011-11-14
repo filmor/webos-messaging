@@ -49,13 +49,12 @@ def configure(ctx):
                      mandatory=False)
 
     ctx.env.include_key = ["netinet/in.h", "stdlib.h", "sys/types.h",
-                           "sys/socket.h", "string.h", "netdb.h"]
+                           "sys/socket.h", "string.h", "netdb.h", "stdio.h"]
     ctx.write_config_header("sasl_build/config.h", headers=True)
 
 def build(ctx):
     exclude = [
             "windlopen.c", "dlopen.c", "getaddrinfo.c", "getnameinfo.c",
-            "auxprop.c", "snprintf.c"
             ]
 
     def create_symlink(ctx):
