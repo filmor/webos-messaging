@@ -6,7 +6,7 @@ def build(ctx):
     if "jabber" in ctx.env.PROTOCOLS:
         ctx.objects(target="jabber",
                     source=ant_glob(ctx, root_path, "**", "*.c",
-                              exclude=["auth_cyrus.c", "win32"]),
+                              exclude=["win32"]),
                     includes=root_path,
                     defines=["PACKAGE=\"jabber\""],
                     use="GLIB BASE XML PURPLE_BUILD sasl")
