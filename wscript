@@ -37,6 +37,7 @@ def do_recurse(f):
 
 @do_recurse
 def options(opt):
+    opt.load('compiler_c compiler_cxx')
     opt.add_option('--protocols', action='store', default="msn",
                    help="Protocols")
 

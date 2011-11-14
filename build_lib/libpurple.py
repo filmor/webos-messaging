@@ -38,6 +38,8 @@ def configure(conf):
     conf.define("SIZEOF_TIME_T", 4, quote=False)
     conf.define("STATIC_PROTO_INIT", "", quote=False)
     conf.define("HAVE_CONFIG_H", 1, quote=False)
+    conf.define("HAVE_CYRUS_SASL", 1, quote=False)
+    conf.define("_GNU_SOURCE", 1, quote=False)
     conf.write_config_header('libpurple_config/config.h')
     conf.defines = {}
 
