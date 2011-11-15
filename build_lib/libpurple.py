@@ -31,16 +31,38 @@ def configure(conf):
                                                     get_path()])
 
     conf.env.append_value("CFLAGS_PURPLE_BUILD", ["-fPIC"])
-    
+    conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
+
+    headers = ["arpa/nameser_compat", "fcntl", "sys/time",
+               "unistd", "locale", "signal", "stdint", "regex"]
+
+    for i in headers:
+        conf.check_cc(header_name=i + ".h", mandatory=False,
+                      auto_add_header_name=True)
+
+    conf.define("HAVE_GETIFADDRS", 1)
+    conf.define("HAVE_INET_NTOP", 1)
+    conf.define("HAVE_INET_ATON", 1)
+    conf.define("HAVE_GETADDRINFO", 1)
+    conf.define("HAVE_STRUCT_TM_TM_ZONE", 1)
+    conf.define("HAVE_TM_GMTOFF", 1)
+    conf.define("HAVE_TIMEZONE", 1)
+    conf.define("HAVE_TIMGM", 1)
+    conf.define("HAVE_STRFTIME_Z_FORMAT", 1)
+    conf.define("HAVE_FILENO", 1)
+    conf.define("HAVE_STRUCT_SOCKADDR_SA_LEN", 1)
     conf.define("VERSION", VERSION)
     conf.define("DISPLAY_VERSION", VERSION)
     conf.define("DATADIR", ".")
     conf.define("SYSCONFDIR", ".")
+    conf.define("HAVE_SSL", 1)
+    conf.define("HAVE_ICONV", 1)
     conf.define("LIBDIR", ".")
     conf.define("SIZEOF_TIME_T", 4, quote=False)
     conf.define("STATIC_PROTO_INIT", "void static_proto_init() {}", quote=False)
     conf.define("HAVE_CONFIG_H", 1, quote=False)
     conf.define("HAVE_CYRUS_SASL", 1, quote=False)
+    conf.define("HAVE_GNUTLS_PRIORITY_FUNCS", 1)
     conf.define("_GNU_SOURCE", 1, quote=False)
     conf.write_config_header('libpurple_config/config.h')
     conf.defines = {}

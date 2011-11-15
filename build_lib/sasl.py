@@ -17,8 +17,6 @@ def configure(ctx):
 
     ctx.env.append_value("CFLAGS_SASL_BUILD", ["-fPIC"])
 
-    check = lambda **kwargs: ctx.check_cc(uselib_store="SASL_BUILD", **kwargs)
-
     ctx.define("_GNU_SOURCE", 1)
     ctx.define("HIER_DELIMITER", '/')
     ctx.define("PACKAGE", "cyrus-sasl")
@@ -53,6 +51,7 @@ def configure(ctx):
     ctx.env.include_key = ["netinet/in.h", "stdlib.h", "sys/types.h",
                            "sys/socket.h", "string.h", "netdb.h", "stdio.h"]
     ctx.write_config_header("sasl_build/config.h", headers=True)
+    ctx.env.include_key = []
 
 def build(ctx):
     exclude = [
