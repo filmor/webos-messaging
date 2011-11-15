@@ -15,6 +15,8 @@ def configure(ctx):
                                                  "./sasl_build"]
                         )
 
+    ctx.env.append_value("CFLAGS_SASL_BUILD", ["-fPIC"])
+
     check = lambda **kwargs: ctx.check_cc(uselib_store="SASL_BUILD", **kwargs)
 
     ctx.define("_GNU_SOURCE", 1)

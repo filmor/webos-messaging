@@ -29,6 +29,8 @@ def configure(conf):
                                                    "PURPLE_STATIC_PRPL"])
     conf.env.append_value("INCLUDES_PURPLE_BUILD", ["libpurple_config",
                                                     get_path()])
+
+    conf.env.append_value("CFLAGS_PURPLE_BUILD", ["-fPIC"])
     
     conf.define("VERSION", VERSION)
     conf.define("DISPLAY_VERSION", VERSION)
