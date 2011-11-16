@@ -97,12 +97,12 @@ def configure_libpurple(conf, protocols, plugins, ssl=None):
     proto_extern = "\\\n".join(
                         "extern gboolean purple_init_%s_plugin();" %
                             name.replace('-', '_')
-                        for name in chain(protocols, plugins)
+                        for name in chain(plugins, protocols)
                         )
 
     proto_func = "\\\n".join(
                         "   purple_init_%s_plugin();" % name.replace('-', '_')
-                        for name in chain(protocols, plugins)
+                        for name in chain(plugins, protocols)
                         )
 
     proto_init = """%s\\

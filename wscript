@@ -13,11 +13,12 @@ palm_programs = [
 
 def options(opt):
     opt.load('compiler_c compiler_cxx')
-    opt.load('libpurple', tooldir='build_lib')
+    opt.load('libpurple palm_programs', tooldir='build_lib')
     opt.add_option('--protocols', action='store', default="msn,icq,jabber",
                    help="Protocols")
 
 def configure(conf):
+    conf.load('palm_programs', tooldir='build_lib')
     conf.parse_flags("-Wall -Werror -O2 -march=armv7-a", "BASE")
     conf.env.INCLUDES = []
     conf.env.CFLAGS = []
@@ -45,4 +46,5 @@ def configure(conf):
 
 def build(bld):
     bld.build_libpurple()
+    bld.load('palm_programs', tooldir='build_lib')
 
