@@ -56,6 +56,7 @@ def configure(ctx):
 def build(ctx):
     exclude = [
             "windlopen.c", "dlopen.c", "getaddrinfo.c", "getnameinfo.c",
+            "snprintf.c"
             ]
 
     def create_symlink(ctx):
