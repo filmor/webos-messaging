@@ -43,6 +43,7 @@ def configure_libpurple(conf, protocols, plugins, ssl=None):
         plugins.update(("ssl", "ssl-" + ssl))
         # TODO: conf.define("SSL_CERTIFICATE_DIR")
         # TODO: Find gnutls (just look ssl_plugin.py up)
+        conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
 
     if "jabber" in protocols:
         conf.env.PURPLE_SASL = True
@@ -138,6 +139,15 @@ def build_libpurple(bld):
         build_protocol(bld, i, path, exclude=exclude, use=use)
         use += ["protocol_%s" % i]
 
+    bld.objects(target="plugins",
+                source=[join(bld.env.PURPLE_PATH, "plugins",
+                            (join("ssl", i) if i.startswith("ssl") else i) +
+                            ".c"
+                            )
+                        for i in bld.env.PURPLE_PLUGINS
+                       ],
+                use=use)
+
     exclude = ["purple-client.c",
                "purple-client-example.c",
                "nullclient.c",
@@ -154,6 +164,6 @@ def build_libpurple(bld):
                 source=ant_glob(bld, path, "**", "*.c", exclude=exclude),
                 export_includes=path,
                 includes=path,
-                use=use,
+                use=use + ["plugins"],
              )
 

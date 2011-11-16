@@ -55,7 +55,7 @@ def configure(ctx):
 
 def build(ctx):
     exclude = [
-            "windlopen.c", "dlopen.c", "getaddrinfo.c", "getnameinfo.c",
+            "windlopen.c", "getaddrinfo.c", "getnameinfo.c",
             "snprintf.c"
             ]
 
