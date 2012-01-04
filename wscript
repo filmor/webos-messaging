@@ -18,7 +18,6 @@ def options(opt):
                    help="Protocols")
 
 def configure(conf):
-    conf.load('palm_programs', tooldir='build_lib')
     conf.parse_flags("-Wall -Werror -O2 -march=armv7-a", "BASE")
     conf.env.INCLUDES = []
     conf.env.CFLAGS = []
@@ -41,10 +40,12 @@ def configure(conf):
         "psychic",
         ]
 
-    conf.configure_libpurple(protocols=conf.options.protocols.split(","),
-                             plugins=plugins, ssl="gnutls")
+    conf.env.PURPLE_PROTOCOLS = conf.options.protocols.split(",")
+    conf.env.PURPLE_PLUGINS = plugins
+    conf.env.PURPLE_SSL = "gnutls"
+
+    conf.load("libpurple palm_programs", tooldir='build_lib')
 
 def build(bld):
-    bld.build_libpurple()
-    bld.load('palm_programs', tooldir='build_lib')
+    bld.load('libpurple palm_programs', tooldir='build_lib')
 

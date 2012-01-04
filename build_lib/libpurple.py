@@ -27,23 +27,19 @@ def build_protocol(ctx, name, path=None, exclude=[], use=[]):
                 use=" ".join(["GLIB XML PURPLE_BUILD"] + use)
                )
 
-@conf
-def configure_libpurple(conf, protocols, plugins, ssl=None):
+def configure(conf):
     conf.load('compiler_c')
 
     path = get_path()
     conf.env.PURPLE_PATH = path
 
-    protocols = set(protocols)
-    plugins = set(plugins)
-
-    assert(protocols.issubset(SUPPORTED_PROTOCOLS))
-
-    if ssl:
-        plugins.update(("ssl", "ssl-" + ssl))
+    if conf.env.PURPLE_SSL:
+        conf.env.PURPLE_PLUGINS += ["ssl", "ssl-" + conf.env.PURPLE_SSL]
         # TODO: conf.define("SSL_CERTIFICATE_DIR")
-        # TODO: Find gnutls (just look ssl_plugin.py up)
         conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
+
+    plugins = conf.env.PURPLE_PLUGINS
+    protocols = conf.env.PURPLE_PROTOCOLS
 
     if "jabber" in protocols:
         conf.env.PURPLE_SASL = True
@@ -115,12 +111,8 @@ void static_proto_init()\\
 
     conf.write_config_header('libpurple_config/config.h')
 
-    conf.env.PURPLE_PROTOCOLS = protocols
-    conf.env.PURPLE_PLUGINS = plugins
 
-
-@conf
-def build_libpurple(bld):
+def build(bld):
     use = ["GLIB", "XML", "GNUTLS", "PURPLE_BUILD"]
 
     for i in bld.env.PURPLE_PROTOCOLS:
@@ -139,7 +131,7 @@ def build_libpurple(bld):
         build_protocol(bld, i, path, exclude=exclude, use=use)
         use += ["protocol_%s" % i]
 
-    bld.objects(target="plugins",
+    a = bld.objects(target="plugins",
                 source=[join(bld.env.PURPLE_PATH, "plugins",
                             (join("ssl", i) if i.startswith("ssl") else i) +
                             ".c"
@@ -147,6 +139,7 @@ def build_libpurple(bld):
                         for i in bld.env.PURPLE_PLUGINS
                        ],
                 use=use)
+    print bld.env.PURPLE_PLUGINS
 
     exclude = ["purple-client.c",
                "purple-client-example.c",
