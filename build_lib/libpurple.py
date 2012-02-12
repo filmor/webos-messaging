@@ -34,7 +34,10 @@ def configure(conf):
     conf.env.PURPLE_PATH = path
 
     if conf.env.PURPLE_SSL:
-        conf.env.PURPLE_PLUGINS += ["ssl", "ssl-" + conf.env.PURPLE_SSL]
+        # Order matters: It seems like ssl-gnutls has to be loaded before
+        # core-ssl to be found (see ssl.c:probe_ssl_plugins)
+        conf.env.PURPLE_PLUGINS += ["ssl-" + conf.env.PURPLE_SSL, "ssl"]
+
         # TODO: conf.define("SSL_CERTIFICATE_DIR")
         conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
 
@@ -53,6 +56,7 @@ def configure(conf):
 
     conf.env.append_value("DEFINES_PURPLE_BUILD", ["HAVE_CONFIG_H"])
     conf.env.append_value("INCLUDES_PURPLE_BUILD", ["libpurple_config", path])
+    conf.env.append_value("LIB_PURPLE_BUILD", ["resolv"])
 
     # We are going to build a shared library
     conf.env.append_value("CFLAGS_PURPLE_BUILD", ["-fPIC"])
@@ -65,6 +69,7 @@ def configure(conf):
                       auto_add_header_name=True)
 
     conf.define("PURPLE_STATIC_PRPL", 1)
+    conf.define("PURPLE_PLUGINS", 1)
     conf.define("HAVE_GETIFADDRS", 1)
     conf.define("HAVE_INET_NTOP", 1)
     conf.define("HAVE_INET_ATON", 1)
@@ -139,7 +144,6 @@ def build(bld):
                         for i in bld.env.PURPLE_PLUGINS
                        ],
                 use=use)
-    print bld.env.PURPLE_PLUGINS
 
     exclude = ["purple-client.c",
                "purple-client-example.c",

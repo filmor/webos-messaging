@@ -14,8 +14,7 @@ def configure(conf):
     conf.load('compiler_cxx')
 
     conf.env.append_value("LIB_PALM_BUILD", ["lunaservice", "mojoluna",
-                                  "mojocore", "cjson", "mojodb",
-                                  "sanitize"])
+                                  "mojocore", "cjson", "mojodb"])
     conf.env.append_value("DEFINES_PALM_BUILD", ["MOJ_LINUX"])
     conf.env.append_value("INCLUDES_PALM_BUILD", [libpurple.get_path()])
 

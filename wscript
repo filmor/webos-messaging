@@ -27,7 +27,7 @@ def configure(conf):
     conf.env.append_value("LIBPATH_BASE", ["../libs"])
 
     conf.env.append_value("INCLUDES_GLIB", ["../include"])
-    conf.env.append_value("LIB_GLIB", ["glib-2.0", "gobject-2.0"])
+    conf.env.append_value("LIB_GLIB", ["glib-2.0", "gobject-2.0", "gmodule-2.0"])
     conf.env.append_value("LIBPATH_GLIB", ["../libs"])
 
     plugins = [
@@ -47,5 +47,8 @@ def configure(conf):
     conf.load("libpurple palm_programs", tooldir='build_lib')
 
 def build(bld):
+    bld.load('libpurple palm_programs', tooldir='build_lib')
+
+def install(bld):
     bld.load('libpurple palm_programs', tooldir='build_lib')
 
