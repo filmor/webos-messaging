@@ -2,8 +2,7 @@ from os.path import join, basename
 import libpurple
 
 palm_programs = [
-        "imaccountvalidator-1.0",
-        "imlibpurpleservice-1.0",
+        "imaccountvalidator",
         "imlibpurpletransport",
         ]
 
