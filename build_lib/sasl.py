@@ -15,7 +15,7 @@ def configure(ctx):
                                                  "./sasl_build"]
                         )
 
-    check = lambda **kwargs: ctx.check_cc(uselib_store="SASL_BUILD", **kwargs)
+    ctx.env.append_value("CFLAGS_SASL_BUILD", ["-fPIC"])
 
     ctx.define("_GNU_SOURCE", 1)
     ctx.define("HIER_DELIMITER", '/')
@@ -49,13 +49,14 @@ def configure(ctx):
                      mandatory=False)
 
     ctx.env.include_key = ["netinet/in.h", "stdlib.h", "sys/types.h",
-                           "sys/socket.h", "string.h", "netdb.h"]
+                           "sys/socket.h", "string.h", "netdb.h", "stdio.h"]
     ctx.write_config_header("sasl_build/config.h", headers=True)
+    ctx.env.include_key = []
 
 def build(ctx):
     exclude = [
-            "windlopen.c", "dlopen.c", "getaddrinfo.c", "getnameinfo.c",
-            "auxprop.c", "snprintf.c"
+            "windlopen.c", "getaddrinfo.c", "getnameinfo.c",
+            "snprintf.c"
             ]
 
     def create_symlink(ctx):
@@ -79,3 +80,6 @@ def build(ctx):
                 use="BASE SASL_BUILD",
                )
                 
+# TODO: Custom cleaner!
+def clean(ctx):
+    pass

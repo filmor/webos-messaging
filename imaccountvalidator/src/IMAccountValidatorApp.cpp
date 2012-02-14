@@ -198,6 +198,22 @@ static PurpleCoreUiOps null_core_uiops =
 
 int main(int argc, char** argv)
 {
+    purple_debug_set_enabled(TRUE);
+    purple_debug_set_verbose(TRUE);
+
+    GList* list = purple_plugins_get_all();
+
+    if (!list)
+        purple_debug_error("main", "No plugins found!");
+
+    for (GList* elem = list; elem; elem = elem->next)
+    {
+        const gchar* str = purple_plugin_get_name(
+                                static_cast<PurplePlugin*> (elem->data)
+                                );
+        purple_debug_error("main", "%s\n", str);
+    }
+
 	IMAccountValidatorApp app;
 	app.initializeLibPurple();
 	int mainResult = app.main(argc, argv);

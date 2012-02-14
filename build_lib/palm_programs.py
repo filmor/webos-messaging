@@ -2,8 +2,7 @@ from os.path import join, basename
 import libpurple
 
 palm_programs = [
-        "imaccountvalidator-1.0",
-        "imlibpurpleservice-1.0",
+        "imaccountvalidator",
         "imlibpurpletransport",
         ]
 
@@ -13,11 +12,10 @@ def options(opt):
 def configure(conf):
     conf.load('compiler_cxx')
 
-    conf.env.append_value("LIB", ["lunaservice", "mojoluna",
-                                  "mojocore", "cjson", "mojodb",
-                                  "sanitize"])
-    conf.env.append_value("DEFINES", ["MOJ_LINUX"])
-    conf.env.append_value("INCLUDES", [libpurple.get_path()])
+    conf.env.append_value("LIB_PALM_BUILD", ["lunaservice", "mojoluna",
+                                  "mojocore", "cjson", "mojodb"])
+    conf.env.append_value("DEFINES_PALM_BUILD", ["MOJ_LINUX"])
+    conf.env.append_value("INCLUDES_PALM_BUILD", [libpurple.get_path()])
 
 def build(bld):
     for path in palm_programs:
@@ -26,5 +24,5 @@ def build(bld):
         bld.program(target=join("bin", name),
                     source=bld.path.ant_glob(join(path, "src/*.cpp")),
                     includes=join(path, "inc"),
-                    use="GLIB BASE purple",
+                    use="GLIB BASE PALM_BUILD purple",
                     )
