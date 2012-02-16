@@ -27,13 +27,12 @@
 #include "db/MojDbQuery.h"
 #include "IMMessage.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "SendOneMessageHandler.h"
 
 //static const char *sendIMCallback = "palm://com.palm.imlibpurple/sendIM";
 //static const char *activityMgrIMWatchName = "IM Service pending messages watch";
 
-OutgoingIMHandler::OutgoingIMHandler(MojService* service, MojInt64 activityId, IMServiceApp::Listener* listener)
+OutgoingIMHandler::OutgoingIMHandler(MojService* service, MojInt64 activityId)
 : m_service(service),
   m_activityAdoptSlot(this, &OutgoingIMHandler::activityAdoptResult),
   m_findMessageSlot(this, &OutgoingIMHandler::findMessageResult),
@@ -43,16 +42,11 @@ OutgoingIMHandler::OutgoingIMHandler(MojService* service, MojInt64 activityId, I
 {
 	// need to hang onto this so we can complete it
 	m_activityId = activityId;
-
-	// tell listener we are now active
-	m_listener = listener;
-	m_listener->ProcessStarting();
 }
 
 OutgoingIMHandler::~OutgoingIMHandler()
 {
-	// tell listener we are done
-	m_listener->ProcessDone();
+
 }
 
 /*

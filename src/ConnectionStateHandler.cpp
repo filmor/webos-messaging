@@ -25,7 +25,6 @@
 
 #include "ConnectionStateHandler.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 
 ConnectionState* ConnectionState::m_connState = NULL;
 IMLoginState* ConnectionState::m_loginState = NULL;

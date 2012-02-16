@@ -33,7 +33,6 @@
 #include "db/MojDbServiceClient.h"
 #include "LibpurpleAdapter.h"
 #include "BuddyListConsolidator.h"
-#include "IMServiceApp.h"
 
 
 class LoginStateData {
@@ -95,7 +94,7 @@ public:
  */
 class IMLoginState : public LoginCallbackInterface {
 public:
-	IMLoginState(MojService* service, IMServiceApp::Listener* listener);
+	IMLoginState(MojService* service);
 	~IMLoginState();
 
 	void loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload);
@@ -116,18 +115,12 @@ public:
 
 	void setLoginStateRevision(const MojInt64 revision) { m_loginStateRevision = revision; }
 
-	// tell listener we are starting a process
-	void ProcessStarting();
-
 private:
 	MojInt64 m_loginStateRevision;
 	// For now just assume 1 active login transaction at a time. Maybe change this later for performance
 	IMLoginStateHandlerInterface* m_signalHandler;
 	MojService*	m_service;
 	std::map<MojString, LoginStateData> m_loginState;
-
-	// listener to tell when we are ready to shutdown
-	IMServiceApp::Listener* m_listener;
 };
 
 
@@ -156,7 +149,6 @@ public:
 	 * if fullList==true, this is a complete list of buddies
 	 */
 	virtual void fullBuddyListResult(const char* serviceName, const char* username, MojObject& buddyList);
-
 private:
 	MojErr adoptActivity();
 	MojErr completeAndResetWatch();

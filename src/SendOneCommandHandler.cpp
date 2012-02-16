@@ -26,11 +26,9 @@
 #include "SendOneCommandHandler.h"
 #include "db/MojDbQuery.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "LibpurpleAdapter.h"
 #include "BuddyStatusHandler.h"
 #include "IMDefines.h"
-#include "IMMessage.h"
 
 SendOneCommandHandler::SendOneCommandHandler(MojService* service, OutgoingIMCommandHandler* const imHandler)
 : m_imDeleteCommandSlot(this, &SendOneCommandHandler::imDeleteCommandResult),
@@ -466,7 +464,7 @@ MojErr SendOneCommandHandler::findAccountIdForRemoveResult(MojObject& result, Mo
 			}
 		}
 		else {
-			MojLogError(IMServiceApp::s_log, _T("findAccountIdResult: no matching loginState record found for %s"), m_serviceName.data());
+			MojLogError(IMServiceApp::s_log, _T("findAccountIdResult: no matching loginState record found for %s %s"), m_username.data(), m_serviceName.data());
 			// tell the outgoing Command handler we are done
 			m_outgoingIMHandler->messageFinished();
 		}
@@ -615,7 +613,7 @@ MojErr SendOneCommandHandler::readAccountIdFromResults(MojObject& result)
 		}
 	}
 	else {
-		MojLogError(IMServiceApp::s_log, _T("readAccountIdFromResults: no matching loginState record found for %s"), m_serviceName.data());
+		MojLogError(IMServiceApp::s_log, _T("readAccountIdFromResults: no matching loginState record found for %s %s"), m_username.data(), m_serviceName.data());
 	}
 
 	return MojErrNone;
@@ -664,7 +662,7 @@ MojErr SendOneCommandHandler::findAccountIdForAddResult(MojObject& result, MojEr
 			}
 		}
 		else {
-			MojLogError(IMServiceApp::s_log, _T("findAccountIdResult: no matching loginState record found for %s"), m_serviceName.data());
+			MojLogError(IMServiceApp::s_log, _T("findAccountIdResult: no matching loginState record found for %s %s"), m_username.data(), m_serviceName.data());
 			// tell the outgoing Command handler we are done
 			m_outgoingIMHandler->messageFinished();
 		}
@@ -704,7 +702,6 @@ MojErr SendOneCommandHandler::addBuddyResult(MojObject& result, MojErr saveErr)
 	contact.putString("_kind", IM_CONTACT_KIND);
 	contact.put("accountId", m_accountId);
 	contact.put("remoteId", m_buddyName); // using username as remote ID since we don't have anything else and this should be unique
-	contact.putBool("imBuddy", true);
 
 	// "ims" array
 	MojObject newImsArray, newImObj;

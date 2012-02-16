@@ -29,7 +29,7 @@
 #include "core/MojService.h"
 #include "db/MojDbServiceClient.h"
 #include "IMMessage.h"
-#include "IMServiceApp.h"
+#include "LibpurpleAdapter.h"
 
 class IncomingIMHandler : public MojSignalHandler
 {
@@ -38,7 +38,7 @@ public:
 	static const int errCannotProcessInput = 100;
 	static const int errGenericDBError = 101;
 
-	IncomingIMHandler(MojService* service, IMServiceApp::Listener* listener);
+	IncomingIMHandler(MojService* service);
 	virtual ~IncomingIMHandler();
 	MojErr saveNewIMMessage(MojRefCountedPtr<IMMessage>);
 
@@ -56,9 +56,6 @@ private:
 
 	// Database client used to make any requests (put, watch, find, etc.) to Mojo DB
 	MojDbServiceClient m_dbClient;
-
-	// listener to tell when we are ready to shutdown
-	IMServiceApp::Listener* m_listener;
 };
 
 #endif /* INCOMINGIMHANDLER_H_ */

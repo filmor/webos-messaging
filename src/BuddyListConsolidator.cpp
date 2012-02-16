@@ -26,7 +26,6 @@
 #include "IMDefines.h"
 #include "BuddyListConsolidator.h"
 #include "IMServiceApp.h"
-#include "PalmImCommon.h"
 
 const unsigned int BuddyListConsolidator::CONTACTS_SET = 0x01;
 const unsigned int BuddyListConsolidator::BUDDYSTATUS_SET = 0x02;
@@ -412,7 +411,6 @@ bool ContactConsolidationHelper::formatForDB(const MojString& accountId, const M
 		{
 			MojObject newImsArray, newImObj;
 			contact.putString("_kind", IM_CONTACT_KIND);
-			contact.putBool("imBuddy", true);
 			contact.put("accountId", accountId);
 			contact.put("remoteId", username); // using username as remote ID since we don't have anything else and this should be unique
 

@@ -31,6 +31,9 @@
 #include "OnEnabledHandler.h"
 #include "IMServiceApp.h"
 #include "BuddyStatusHandler.h"
+#include "IMLoginState.h"
+#include "LibpurpleAdapterPrefs.h"
+#include "LibpurpleAdapter.h"
 
 #define IMVersionString  "IMLibpurpleService 7-13 12:30pm starting...."
 
@@ -40,6 +43,7 @@ const IMServiceHandler::Method IMServiceHandler::s_methods[] = {
 	{_T("loginStateChanged"), (Callback) &IMServiceHandler::handleLoginStateChange},
 	{_T("sendIM"), (Callback) &IMServiceHandler::IMSend}, // callback for activity manager
 	{_T("sendCommand"), (Callback) &IMServiceHandler::IMSendCmd}, // callback for activity manager
+	{_T("loadpreferences"), (Callback) &IMServiceHandler::loadpreferences},
 	{NULL, NULL} };
 
 IMServiceHandler::IMServiceHandler(MojService* service)
@@ -49,16 +53,12 @@ IMServiceHandler::IMServiceHandler(MojService* service)
 {
 	MojLogTrace(IMServiceApp::s_log);
 	m_loginState = NULL;
-	m_activeProcesses = 0;
-	m_shutdownCallbackId = 0;
-	m_displayController = NULL;
 }
 
 IMServiceHandler::~IMServiceHandler()
 {
 	MojLogTrace(IMServiceApp::s_log);
 	delete m_loginState;
-	delete m_displayController;
 }
 
 
@@ -76,10 +76,9 @@ MojErr IMServiceHandler::init()
 
 	// set up the incoming message callback pointer
 	LibpurpleAdapter::assignIMServiceHandler(this);
-
-	// create the display controller to keep track of screen changes
-	m_displayController = new DisplayController(m_service);
-	m_displayController->createSubscription();
+	
+	//Load Preferences
+	IMServiceHandler::LoadAccountPreferences ("", "");
 
 	return MojErrNone;
 }
@@ -87,7 +86,7 @@ MojErr IMServiceHandler::init()
 
 MojErr IMServiceHandler::onEnabled(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-	MojRefCountedPtr<OnEnabledHandler> handler(new OnEnabledHandler(m_service, this));
+	MojRefCountedPtr<OnEnabledHandler> handler(new OnEnabledHandler(m_service));
 	MojErr err = handler->start(payload);
 	if (err == MojErrNone) {
 		serviceMsg->replySuccess();
@@ -150,7 +149,7 @@ MojErr IMServiceHandler::IMSend(MojServiceMessage* serviceMsg, const MojObject p
 	// create the outgoing message handler
 	// This object is ref counted and will be deleted after the slot is invoked
 	// Therefore we don't need to hold on to it or worry about deleting it
-	MojRefCountedPtr<OutgoingIMHandler> handler(new OutgoingIMHandler(m_service, activityId, this));
+	MojRefCountedPtr<OutgoingIMHandler> handler(new OutgoingIMHandler(m_service, activityId));
 
 	// query the DB for outgoing messages and send them
 	MojErr err = handler->start();
@@ -225,7 +224,7 @@ MojErr IMServiceHandler::IMSendCmd(MojServiceMessage* serviceMsg, const MojObjec
 	// create the outgoing command handler
 	// This object is ref counted and will be deleted after the slot is invoked
 	// Therefore we don't need to hold on to it or worry about deleting it
-	MojRefCountedPtr<OutgoingIMCommandHandler> handler(new OutgoingIMCommandHandler(m_service, activityId, this));
+	MojRefCountedPtr<OutgoingIMCommandHandler> handler(new OutgoingIMCommandHandler(m_service, activityId));
 
 	// query the DB for outgoing commands and send them
 	MojErr err = handler->start();
@@ -271,7 +270,7 @@ bool IMServiceHandler::incomingIM(const char* serviceName, const char* username,
 
 	if (!err) {
 		// handle the message
-		MojRefCountedPtr<IncomingIMHandler> incomingIMHandler(new IncomingIMHandler(m_service, this));
+		MojRefCountedPtr<IncomingIMHandler> incomingIMHandler(new IncomingIMHandler(m_service));
 		err = incomingIMHandler->saveNewIMMessage(imMessage);
 	}
 	if (err) {
@@ -299,7 +298,7 @@ bool IMServiceHandler::updateBuddyStatus(const char* accountId, const char* serv
 			accountId, serviceName, username, availability, customMessage, groupName, buddyAvatarLoc);
 
 	// handle the message
-	MojRefCountedPtr<BuddyStatusHandler> buddyStatusHandler(new BuddyStatusHandler(m_service, this));
+	MojRefCountedPtr<BuddyStatusHandler> buddyStatusHandler(new BuddyStatusHandler(m_service));
 	MojErr err = buddyStatusHandler->updateBuddyStatus(accountId, serviceName, username, availability, customMessage, groupName, buddyAvatarLoc);
 
 	if (err) {
@@ -321,7 +320,7 @@ bool IMServiceHandler::receivedBuddyInvite(const char* serviceName, const char* 
 	MojLogInfo (IMServiceApp::s_log, _T("receivedBuddyInvite - serviceName: %s username: %s usernameFrom: %s message: %s"), serviceName, username, usernameFrom, customMessage);
 
 	// Create an imcommand for the application to prompt user for acceptance
-	MojRefCountedPtr<BuddyStatusHandler> buddyStatusHandler(new BuddyStatusHandler(m_service, this));
+	MojRefCountedPtr<BuddyStatusHandler> buddyStatusHandler(new BuddyStatusHandler(m_service));
 	MojErr err = buddyStatusHandler->receivedBuddyInvite(serviceName, username, usernameFrom, customMessage);
 
 	if (err) {
@@ -352,7 +351,7 @@ bool IMServiceHandler::buddyInviteDeclined(const char* serviceName, const char* 
 MojErr IMServiceHandler::loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload)
 {
 	if (m_loginState == NULL) {
-		m_loginState = new IMLoginState(m_service, this);
+		m_loginState = new IMLoginState(m_service);
 	}
 
 	m_loginState->loginForTesting(serviceMsg, payload);
@@ -369,7 +368,7 @@ MojErr IMServiceHandler::handleLoginStateChange(MojServiceMessage* serviceMsg, c
 	m_connectionState.initConnectionStatesFromActivity(payload);
 
 	if (m_loginState == NULL) {
-		m_loginState = new IMLoginState(m_service, this);
+		m_loginState = new IMLoginState(m_service);
 	}
 
 	return m_loginState->handleLoginStateChange(serviceMsg, payload);
@@ -403,6 +402,7 @@ MojErr IMServiceHandler::privatelogIMMessage(const MojChar* format, MojObject IM
 	// replace the message body
 	// not much we can do about errors here...
 
+	//TODO - put this back when we can control log levels centrally
 	bool found = false;
 	MojErr err = IMObject.del(messageTextKey, found);
 	MojErrCheck(err);
@@ -419,69 +419,57 @@ MojErr IMServiceHandler::privatelogIMMessage(const MojChar* format, MojObject IM
 }
 
 /*
- * Called by each signal handler to indicate the are actively starting to process a message
+ * Load preferences for account we are logging in to
+ *
  */
-void IMServiceHandler::ProcessStarting()
+MojErr IMServiceHandler::loadpreferences(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-	m_activeProcesses++;
+	//Sleep for 3 secondas to ensure DB is updated
+	sleep(3);
+	
+	//Load server and port
+	MojString errorText;
+	bool found = false;
+	bool result = true;
+	MojString templateId;
+	MojString UserName;
+
+	//Get templateId
+	MojErr err = payload.get(_T("templateId"), templateId, found);
+	if (!found) {
+		errorText.assign(_T("Missing templateId in payload."));
+		result = false;
+	}
+	//Get server name
+	err = payload.get(_T("UserName"), UserName, found);
+	if (!found) {
+		errorText.assign(_T("Missing UserName in payload."));
+		result = false;
+	}
+	
+	if (!result) {
+		serviceMsg->replyError(err, errorText);
+		return MojErrNone;
+	}
+	
+	//Load the prefs
+	LoadAccountPreferences (templateId, UserName);
+	
+	//Return success
+	serviceMsg->replySuccess();
+	return MojErrNone;
 }
 
-/*
- * Called by each signal handler to indicate the are done processing
- */
-void IMServiceHandler::ProcessDone()
+MojErr IMServiceHandler::LoadAccountPreferences(const char* templateId, const char* UserName)
 {
-	m_activeProcesses--;
-
-	if (m_activeProcesses < 0) {
-		MojLogError(IMServiceApp::s_log, _T("ProcessDone - active process count is negative!!"));
-		m_activeProcesses = 0;
-	}
-
-	// remove a current shutdown timer if we have one already
-	if (m_shutdownCallbackId) {
-		MojLogNotice(IMServiceApp::s_log, "ProcessDone - shutdown delayed");
-		g_source_remove(m_shutdownCallbackId);
-		m_shutdownCallbackId = 0;
-	}
-
-	if (OkToShutdown()) {
-		MojLogNotice(IMServiceApp::s_log, "ProcessDone - shutting down in %llu seconds", SHUTDOWN_DELAY_SECONDS);
-		m_shutdownCallbackId = g_timeout_add_seconds(SHUTDOWN_DELAY_SECONDS, &ShutdownCallback, this);
-	} else {
-		MojLogInfo(IMServiceApp::s_log, "ProcessDone - %llu processes still active, accounts still online", m_activeProcesses);
-	}
+	//Assign Prefs
+	MojRefCountedPtr<LibpurpleAdapterPrefs> imPrefsHandler(new LibpurpleAdapterPrefs(m_service));
+	
+	//Init Prefs
+	imPrefsHandler->init();
+	
+	//Load Account Preferences
+	MojErr err = imPrefsHandler->LoadAccountPreferences(templateId, UserName);
+	
+	return err;
 }
-
-/*
- * timer callback
- */
-gboolean IMServiceHandler::ShutdownCallback(void* data)
-{
-	assert(data);
-	IMServiceHandler* handler = static_cast<IMServiceHandler*>(data);
-	handler->m_shutdownCallbackId = 0;
-
-	if (handler->OkToShutdown()) {
-		MojLogNotice(IMServiceApp::s_log, "sms service shutting down...");
-		IMServiceApp::Shutdown();
-	} else {
-		MojLogNotice(IMServiceApp::s_log, "sms service shutdown aborted; clients still active");
-	}
-
-	return false; // return false to make sure we don't get called again
-}
-
-/*
- * Are all processes done?
- */
-bool IMServiceHandler::OkToShutdown()
-{
-	// ask libpurple if all accounts are logged off
-	if (0 == m_activeProcesses) {
-		return LibpurpleAdapter::allAccountsOffline();
-	}
-
-	return false;
-}
-

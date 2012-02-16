@@ -28,13 +28,12 @@
 
 #include "core/MojService.h"
 #include "db/MojDbServiceClient.h"
-#include "IMServiceApp.h"
 
 class OutgoingIMHandler : public MojSignalHandler
 {
 public:
 
-	OutgoingIMHandler(MojService* service, MojInt64 activityId, IMServiceApp::Listener* listener);
+	OutgoingIMHandler(MojService* service, MojInt64 activityId);
 	~OutgoingIMHandler();
 
 	// initiate the send process
@@ -71,9 +70,6 @@ private:
 
 	MojVector<MojObject> m_messagesToSend;
 	MojInt64 m_activityId;
-
-	// listener to tell when we are ready to shutdown
-	IMServiceApp::Listener* m_listener;
 
 };
 

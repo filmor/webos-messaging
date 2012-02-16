@@ -31,13 +31,11 @@
 #include "ConnectionStateHandler.h"
 #include "DisplayController.h"
 #include "LibpurpleAdapter.h"
-#include "IMServiceHandler.h"
-#include "IMMessage.h"
 
 /*
  * IMLoginState
  */
-IMLoginState::IMLoginState(MojService* service, IMServiceApp::Listener* listener)
+IMLoginState::IMLoginState(MojService* service)
 : m_loginStateRevision(0),
   m_signalHandler(NULL),
   m_service(service)
@@ -46,21 +44,12 @@ IMLoginState::IMLoginState(MojService* service, IMServiceApp::Listener* listener
 	LibpurpleAdapter::assignIMLoginState(this);
 	// Register for connection changed callbacks.
 	ConnectionState::setLoginStateCallback(this);
-
-	// listener for process finished
-	m_listener = listener;
 }
 
 IMLoginState::~IMLoginState()
 {
 	LibpurpleAdapter::assignIMLoginState(NULL);
 	ConnectionState::setLoginStateCallback(NULL);
-}
-
-void IMLoginState::ProcessStarting()
-{
-	// tell listener we are now active
-	m_listener->ProcessStarting();
 }
 
 void IMLoginState::handlerDone(IMLoginStateHandlerInterface* handler)
@@ -74,9 +63,6 @@ void IMLoginState::handlerDone(IMLoginStateHandlerInterface* handler)
 	{
 		m_signalHandler = NULL;
 	}
-
-	// tell listener the process is done. doesn't matter if it is theirs or ours - just decrementing the active process count
-	m_listener->ProcessDone();
 }
 
 void IMLoginState::loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload)
@@ -209,8 +195,6 @@ IMLoginStateHandler::IMLoginStateHandler(MojService* service, MojInt64 loginStat
   m_workingLoginStateRev(loginStateRevision),
   m_buddyListConsolidator(NULL)
 {
-	// tell listener we are now active
-	m_loginStateController->ProcessStarting();
 }
 
 
@@ -226,7 +210,7 @@ void IMLoginStateHandler::loginForTesting(MojServiceMessage* serviceMsg, const M
 
 	// your username and password go here!
 	loginParams.username = "xxx@aol.com";
-	loginParams.password = "test";
+	loginParams.password = "xxx";
 	loginParams.serviceName = "type_aim";
 
 	loginParams.availability = PalmAvailability::ONLINE;
@@ -439,8 +423,10 @@ MojErr IMLoginStateHandler::handleBadCredentials(const MojString& serviceName, c
 	mergeProps.putInt("availability", PalmAvailability::OFFLINE);
 	mergeProps.putString("state", LOGIN_STATE_OFFLINE);
 	mergeProps.putString("ipAddress", "");
-	mergeProps.putString("errorCode", err);
-
+	if (err != NULL)
+	{
+		mergeProps.putString("errorCode", err);
+	}
 	m_dbClient.merge(m_updateLoginStateSlot, query, mergeProps);
 
 	// update the syncState record for this account so account dashboard can display errors
@@ -489,7 +475,7 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 	else
 	{
 		//TODO: get rid of m_workingLoginState: what in the credentials response can tie it back to its corresponding m_loginState?
-
+		
 		// Now get the login params and request login
 		MojObject credentials;
 		MojErr err = payload.getRequired("credentials", credentials);
@@ -744,15 +730,9 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 		bool found = m_loginStateController->getLoginStateData(newState.getKey(), cachedState);
 		if (!found)
 		{
-			 // Key not found - we must set the state of offline in this case, since this indicates the process just started
-			 // then let it proceed as normal for login
-			 // needed for the case of a crash, reboot or battery pull while the service is logged in. We will need to go through the
-			 // login process again when service comes back up even though state may have been saved as online
-			 MojString state;
-			 state.assign(LOGIN_STATE_OFFLINE);
-			 newState.setState(state);
-			 MojLogWarning(IMServiceApp::s_log, _T("processLoginStates Key not found, so assign the cache state to offline"));
-			 cachedState = newState;
+			// Key not found, so assign the new state to the cached state and
+			// let it proceed as normal for login (most likely) or logout
+			cachedState = newState;
 		}
 
 		logLoginStates(cachedState, newState);
@@ -874,7 +854,6 @@ MojErr IMLoginStateHandler::getBuddyLists(const MojString& serviceName, const Mo
 
 	return MojErrNone;
 }
-
 
 MojErr IMLoginStateHandler::consolidateAllBuddyLists()
 {
@@ -1215,7 +1194,7 @@ MojErr LoginStateData::assignFromDbRecord(MojObject& record)
 	record.get("username", m_username, found);
 	record.get("accountId", m_accountId, found);
 	record.get("serviceName", m_serviceName, found);
-	err = record.get("state", m_state, found);
+	err = record.get("state", m_state, found);	
 	if (err != MojErrNone || found == false)
 	{
 		MojLogError(IMServiceApp::s_log, _T("LoginStateData::getFromDbRecord missing state, assuming offline."));
@@ -1231,7 +1210,6 @@ MojErr LoginStateData::assignFromDbRecord(MojObject& record)
 		MojLogError(IMServiceApp::s_log, _T("LoginStateData::getFromDbRecord missing availability, assuming offline."));
 		m_availability = PalmAvailability::OFFLINE;
 	}
-
 	return err;
 }
 
@@ -1411,11 +1389,50 @@ void IMLoginSyncStateHandler::updateSyncStateRecord(const char* serviceName, Moj
 
 	// get the capabilityProvidor id from the service
 	// TODO - should read this out of template ID...
-	if (strcmp(serviceName, SERVICENAME_GTALK) == 0) {
+	if (strcmp(serviceName, SERVICENAME_AIM) == 0) {
+		m_capabilityId.assign(CAPABILITY_AIM);
+	}
+	else if (strcmp(serviceName, SERVICENAME_FACEBOOK) == 0){
+		m_capabilityId.assign(CAPABILITY_FACEBOOK);
+	}
+	else if (strcmp(serviceName, SERVICENAME_GTALK) == 0){
 		m_capabilityId.assign(CAPABILITY_GTALK);
 	}
-	else if (strcmp(serviceName, SERVICENAME_AIM) == 0){
-		m_capabilityId.assign(CAPABILITY_AIM);
+	else if (strcmp(serviceName, SERVICENAME_GADU) == 0){
+		m_capabilityId.assign(CAPABILITY_GADU);
+	}
+	else if (strcmp(serviceName, SERVICENAME_GROUPWISE) == 0){
+		m_capabilityId.assign(CAPABILITY_GROUPWISE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0){
+		m_capabilityId.assign(CAPABILITY_ICQ);
+	}
+	else if (strcmp(serviceName, SERVICENAME_JABBER) == 0){
+		m_capabilityId.assign(CAPABILITY_JABBER);
+	}
+	else if (strcmp(serviceName, SERVICENAME_LIVE) == 0){
+		m_capabilityId.assign(CAPABILITY_LIVE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_WLM) == 0){
+		m_capabilityId.assign(CAPABILITY_WLM);
+	}
+	else if (strcmp(serviceName, SERVICENAME_MYSPACE) == 0){
+		m_capabilityId.assign(CAPABILITY_MYSPACE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_QQ) == 0){
+		m_capabilityId.assign(CAPABILITY_QQ);
+	}
+	else if (strcmp(serviceName, SERVICENAME_SAMETIME) == 0){
+		m_capabilityId.assign(CAPABILITY_SAMETIME);
+	}
+	else if (strcmp(serviceName, SERVICENAME_SIPE) == 0){
+		m_capabilityId.assign(CAPABILITY_SIPE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_XFIRE) == 0){
+		m_capabilityId.assign(CAPABILITY_XFIRE);
+	}
+	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0){
+		m_capabilityId.assign(CAPABILITY_YAHOO);
 	}
 	else {
 		MojLogError(IMServiceApp::s_log, _T("updateSyncStateRecord: unknown serviceName %s. No syncState record created."), serviceName);
@@ -1481,7 +1498,7 @@ MojErr IMLoginSyncStateHandler::removeSyncStateResult(MojObject& result, MojErr 
 
 	// bus address
 	MojString busAddr;
-	busAddr.assign(_T("com.palm.imlibpurple"));
+	busAddr.assign(_T("org.webosinternals.imlibpurple"));
 	props.putString(_T("busAddress"), busAddr);
 
 	// sync state - error

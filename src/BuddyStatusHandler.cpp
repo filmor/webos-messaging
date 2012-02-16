@@ -26,14 +26,12 @@
 #include "BuddyStatusHandler.h"
 #include "db/MojDbQuery.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "IMDefines.h"
-#include "IMMessage.h"
 
 /*
  * Note the order of the globals inited below, it matters
  */
-BuddyStatusHandler::BuddyStatusHandler(MojService* service, IMServiceApp::Listener* listener)
+BuddyStatusHandler::BuddyStatusHandler(MojService* service)
 : m_saveStatusSlot(this, &BuddyStatusHandler::saveStatusResult),
   m_saveContactSlot(this, &BuddyStatusHandler::saveContactResult),
   m_findCommandSlot(this, &BuddyStatusHandler::findCommandResult),
@@ -42,16 +40,12 @@ BuddyStatusHandler::BuddyStatusHandler(MojService* service, IMServiceApp::Listen
   m_dbClient(service, MojDbServiceDefs::ServiceName),
   m_tempdbClient(service, MojDbServiceDefs::TempServiceName)
 {
-	// tell listener we are now active
-	m_listener = listener;
-	m_listener->ProcessStarting();
+
 }
 
 
-BuddyStatusHandler::~BuddyStatusHandler()
-{
-	// tell listener we are done
-	m_listener->ProcessDone();
+BuddyStatusHandler::~BuddyStatusHandler() {
+
 }
 
 /*

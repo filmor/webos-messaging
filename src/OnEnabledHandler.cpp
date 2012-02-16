@@ -26,13 +26,10 @@
 #include "OnEnabledHandler.h"
 #include "db/MojDbQuery.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 #include "IMDefines.h"
-#include "PalmImCommon.h"
 
-OnEnabledHandler::OnEnabledHandler(MojService* service, IMServiceApp::Listener* listener)
+OnEnabledHandler::OnEnabledHandler(MojService* service)
 : m_getAccountInfoSlot(this, &OnEnabledHandler::getAccountInfoResult),
-  m_findImLoginStateSlot(this, &OnEnabledHandler::findImLoginStateResult),
   m_addImLoginStateSlot(this, &OnEnabledHandler::addImLoginStateResult),
   m_deleteImLoginStateSlot(this, &OnEnabledHandler::deleteImLoginStateResult),
   m_deleteImMessagesSlot(this, &OnEnabledHandler::deleteImMessagesResult),
@@ -44,15 +41,10 @@ OnEnabledHandler::OnEnabledHandler(MojService* service, IMServiceApp::Listener* 
   m_tempdbClient(service, MojDbServiceDefs::TempServiceName),
   m_enable(false)
 {
-	// tell listener we are now active
-	m_listener = listener;
-	m_listener->ProcessStarting();
 }
 
 OnEnabledHandler::~OnEnabledHandler()
 {
-	// tell listener we are done
-	m_listener->ProcessDone();
 }
 
 /*
@@ -63,7 +55,8 @@ MojErr OnEnabledHandler::start(const MojObject& payload)
 
 	IMServiceHandler::logMojObjectJsonString(_T("OnEnabledHandler payload: %s"), payload);
 
-	MojErr err = payload.getRequired(_T("accountId"), m_accountId);
+	MojString accountId;
+	MojErr err = payload.getRequired(_T("accountId"), accountId);
 	if (err != MojErrNone) {
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler accountId missing so bailing. error %d"), err);
 		return err;
@@ -87,10 +80,10 @@ MojErr OnEnabledHandler::start(const MojObject& payload)
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::start createRequest failed. error %d"), err);
 	} else {
 		MojObject params;
-		params.put(_T("accountId"), m_accountId);
+		params.put(_T("accountId"), accountId);
 		err = req->send(m_getAccountInfoSlot, "com.palm.service.accounts", "getAccountInfo", params, 1);
 		if (err) {
-			MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::start: getAccountInfo id %s failed. error %d"), m_accountId.data(), err);
+			MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::start: getAccountInfo id %s failed. error %d"), accountId.data(), err);
 		}
 	}
 
@@ -116,28 +109,31 @@ MojErr  OnEnabledHandler::getAccountInfoResult(MojObject& payload, MojErr result
 		return err;
 	}
 
-	err = result.getRequired("_id", m_accountId);
-	if (err != MojErrNone || m_accountId.empty()) {
+	MojString accountId;
+	err = result.getRequired("_id", accountId);
+	if (err != MojErrNone || accountId.empty()) {
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::getAccountInfoResult accountId empty or error %d"), err);
 		return err;
 	}
 
-	err = result.getRequired("username", m_username);
-	if (err != MojErrNone || m_username.empty()) {
+	MojString username;
+	err = result.getRequired("username", username);
+	if (err != MojErrNone || username.empty()) {
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::getAccountInfoResult username empty or error %d"), err);
 		return err;
 	}
 
-	getServiceNameFromCapabilityId(m_serviceName);
-	if (m_serviceName.empty()) {
+	MojString serviceName;
+	getServiceNameFromCapabilityId(serviceName);
+	if (serviceName.empty()) {
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::getAccountInfoResult serviceName empty"));
 		return err;
 	}
 
 	if (m_enable) {
-		err = accountEnabled();
+		err = accountEnabled(accountId, serviceName, username);
 	} else {
-		err = accountDisabled();
+		err = accountDisabled(accountId, serviceName, username);
 	}
 
 	return err;
@@ -150,12 +146,36 @@ MojErr OnEnabledHandler::getDefaultServiceName(const MojObject& accountResult, M
 	if (err != MojErrNone) {
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler templateId empty or error %d"), err);
 	} else {
-		if (templateId == "com.palm.google")
-			serviceName.assign(SERVICENAME_GTALK);
-		else if (templateId == "com.palm.aol")
+		if (templateId == "org.webosinternals.messaging.aol.aim")
 			serviceName.assign(SERVICENAME_AIM);
-		else if (templateId == "com.palm.icq")
+		else if (templateId == "org.webosinternals.messaging.facebook")
+			serviceName.assign(SERVICENAME_FACEBOOK);
+		else if (templateId == "org.webosinternals.messaging.google.talk")
+			serviceName.assign(SERVICENAME_GTALK);
+		else if (templateId == "org.webosinternals.messaging.gadu")
+			serviceName.assign(SERVICENAME_GADU);
+		else if (templateId == "org.webosinternals.messaging.groupwise")
+			serviceName.assign(SERVICENAME_GROUPWISE);
+		else if (templateId == "org.webosinternals.messaging.icq")
 			serviceName.assign(SERVICENAME_ICQ);
+		else if (templateId == "org.webosinternals.messaging.jabber")
+			serviceName.assign(SERVICENAME_JABBER);
+		else if (templateId == "org.webosinternals.messaging.live")
+			serviceName.assign(SERVICENAME_LIVE);
+		else if (templateId == "org.webosinternals.messaging.wlm")
+			serviceName.assign(SERVICENAME_WLM);
+		else if (templateId == "org.webosinternals.messaging.myspace")
+			serviceName.assign(SERVICENAME_MYSPACE);
+		else if (templateId == "org.webosinternals.messaging.qq")
+			serviceName.assign(SERVICENAME_QQ);
+		else if (templateId == "org.webosinternals.messaging.sametime")
+			serviceName.assign(SERVICENAME_SAMETIME);
+		else if (templateId == "org.webosinternals.messaging.sipe")
+			serviceName.assign(SERVICENAME_SIPE);
+		else if (templateId == "org.webosinternals.messaging.xfire")
+			serviceName.assign(SERVICENAME_XFIRE);
+		else if (templateId == "org.webosinternals.messaging.yahoo")
+			serviceName.assign(SERVICENAME_YAHOO);
 		else
 			err = MojErrNotImpl;
 	}
@@ -164,11 +184,36 @@ MojErr OnEnabledHandler::getDefaultServiceName(const MojObject& accountResult, M
 
 void OnEnabledHandler::getServiceNameFromCapabilityId(MojString& serviceName) 
 {
-	if (m_capabilityProviderId == CAPABILITY_GTALK)
-		serviceName.assign(SERVICENAME_GTALK);	
-	else if (m_capabilityProviderId == CAPABILITY_AIM)
-		serviceName.assign(SERVICENAME_AIM);
-
+	if (m_capabilityProviderId == CAPABILITY_AIM)
+		serviceName.assign(SERVICENAME_AIM);	
+	else if (m_capabilityProviderId == CAPABILITY_FACEBOOK)
+		serviceName.assign(SERVICENAME_FACEBOOK);
+	else if (m_capabilityProviderId == CAPABILITY_GTALK)
+		serviceName.assign(SERVICENAME_GTALK);
+	else if (m_capabilityProviderId == CAPABILITY_GADU)
+		serviceName.assign(SERVICENAME_GADU);
+	else if (m_capabilityProviderId == CAPABILITY_GROUPWISE)
+		serviceName.assign(SERVICENAME_GROUPWISE);
+	else if (m_capabilityProviderId == CAPABILITY_ICQ)
+		serviceName.assign(SERVICENAME_ICQ);
+	else if (m_capabilityProviderId == CAPABILITY_JABBER)
+		serviceName.assign(SERVICENAME_JABBER);
+	else if (m_capabilityProviderId == CAPABILITY_LIVE)
+		serviceName.assign(SERVICENAME_LIVE);
+	else if (m_capabilityProviderId == CAPABILITY_WLM)
+		serviceName.assign(SERVICENAME_WLM);	
+	else if (m_capabilityProviderId == CAPABILITY_MYSPACE)
+		serviceName.assign(SERVICENAME_MYSPACE);
+	else if (m_capabilityProviderId == CAPABILITY_QQ)
+		serviceName.assign(SERVICENAME_QQ);
+	else if (m_capabilityProviderId == CAPABILITY_SAMETIME)
+		serviceName.assign(SERVICENAME_SAMETIME);
+	else if (m_capabilityProviderId == CAPABILITY_SIPE)
+		serviceName.assign(SERVICENAME_SIPE);
+	else if (m_capabilityProviderId == CAPABILITY_XFIRE)
+		serviceName.assign(SERVICENAME_XFIRE);
+	else if (m_capabilityProviderId == CAPABILITY_YAHOO)
+		serviceName.assign(SERVICENAME_YAHOO);
 }
 
 /*
@@ -217,24 +262,24 @@ MojErr OnEnabledHandler::getMessagingCapabilityObject(const MojObject& capabilit
  * Enabling an IM account requires the following
  *     add com.palm.imloginstate.libpurple record
  */
-MojErr OnEnabledHandler::accountEnabled()
+MojErr OnEnabledHandler::accountEnabled(const MojString& accountId, const MojString& serviceName, const MojString& username)
 {
+	//TODO: first issue a merge in case the account already exists?
 	MojLogTrace(IMServiceApp::s_log);
-	MojLogInfo(IMServiceApp::s_log, _T("accountEnabled id=%s, serviceName=%s"), m_accountId.data(), m_serviceName.data());
+	MojLogInfo(IMServiceApp::s_log, _T("accountEnabled id=%s, serviceName=%s"), accountId.data(), serviceName.data());
 
-	// first see if an imloginstate record already exists for this account. This can happen on an OTA update or restore
-	// construct our where clause - find by username and servicename
-	MojDbQuery query;
-	query.where("serviceName", MojDbQuery::OpEq, m_serviceName);
-	query.where("username", MojDbQuery::OpEq, m_username);
-	query.from(IM_LOGINSTATE_KIND);
-
-	MojErr err = m_dbClient.find(this->m_findImLoginStateSlot, query);
-	if (err) {
+	MojObject imLoginState;
+	imLoginState.putString(_T("_kind"), IM_LOGINSTATE_KIND);
+	imLoginState.put(_T("accountId"), accountId);
+	imLoginState.put(_T("serviceName"), serviceName);
+	imLoginState.put(_T("username"), username);
+	imLoginState.putString(_T("state"), LOGIN_STATE_OFFLINE);
+	imLoginState.putInt(_T("availability"), PalmAvailability::ONLINE); //default to online so we automatically login at first
+	MojErr err = m_dbClient.put(m_addImLoginStateSlot, imLoginState);
+	if (err != MojErrNone) {
 		MojString error;
 		MojErrToString(err, error);
-		MojLogError(IMServiceApp::s_log, _T("accountEnabled: dbClient.find() failed: error %d - %s"), err, error.data());
-		// query failed - not much we can do here...
+		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler db.put() failed: error %d - %s"), err, error.data());
 	}
 
 	return err;
@@ -250,16 +295,16 @@ MojErr OnEnabledHandler::accountEnabled()
  *     delete com.palm.imgroupchat.libpurple records -- groupchats not currently supported
  * Note: the ChatThreader service takes care of removing empty chats
  */
-MojErr OnEnabledHandler::accountDisabled()
+MojErr OnEnabledHandler::accountDisabled(const MojString& accountId, const MojString& serviceName, const MojString& username)
 {
 	MojLogTrace(IMServiceApp::s_log);
-	MojLogInfo(IMServiceApp::s_log, _T("accountDisabled id=%s, serviceName=%s"), m_accountId.data(), m_serviceName.data());
+	MojLogInfo(IMServiceApp::s_log, _T("accountDisabled id=%s, serviceName=%s"), accountId.data(), serviceName.data());
 
 	// delete com.palm.imloginstate.libpurple record
 	MojDbQuery queryLoginState;
 	queryLoginState.from(IM_LOGINSTATE_KIND);
-	queryLoginState.where(_T("serviceName"), MojDbQuery::OpEq, m_serviceName);
-	queryLoginState.where(_T("username"), MojDbQuery::OpEq, m_username);
+	queryLoginState.where(_T("serviceName"), MojDbQuery::OpEq, serviceName);
+	queryLoginState.where(_T("username"), MojDbQuery::OpEq, username);
 	MojErr err = m_dbClient.del(m_deleteImLoginStateSlot, queryLoginState);
 	if (err != MojErrNone) {
 		MojString error;
@@ -271,8 +316,8 @@ MojErr OnEnabledHandler::accountDisabled()
 	//TODO: need to query both from & recipient addresses. Simplify this???
 	MojDbQuery queryMessage;
 	queryMessage.from(IM_IMMESSAGE_KIND);
-	queryLoginState.where(_T("serviceName"), MojDbQuery::OpEq, m_serviceName);
-	queryLoginState.where(_T("username"), MojDbQuery::OpEq, m_username);
+	queryLoginState.where(_T("serviceName"), MojDbQuery::OpEq, serviceName);
+	queryLoginState.where(_T("username"), MojDbQuery::OpEq, username);
 	err = m_dbClient.del(m_deleteImMessagesSlot, queryMessage);
 	if (err != MojErrNone) {
 		MojString error;
@@ -283,8 +328,8 @@ MojErr OnEnabledHandler::accountDisabled()
 	// delete com.palm.imcommand.libpurple records
 	MojDbQuery queryCommand;
 	queryCommand.from(IM_IMCOMMAND_KIND);
-	queryLoginState.where(_T("serviceName"), MojDbQuery::OpEq, m_serviceName);
-	queryLoginState.where(_T("username"), MojDbQuery::OpEq, m_username);
+	queryLoginState.where(_T("serviceName"), MojDbQuery::OpEq, serviceName);
+	queryLoginState.where(_T("username"), MojDbQuery::OpEq, username);
 	err = m_dbClient.del(m_deleteImMessagesSlot, queryCommand);
 	if (err != MojErrNone) {
 		MojString error;
@@ -295,7 +340,7 @@ MojErr OnEnabledHandler::accountDisabled()
 	// delete com.palm.contact.libpurple record
 	MojDbQuery queryContact;
 	queryContact.from(IM_CONTACT_KIND);
-	queryContact.where(_T("accountId"), MojDbQuery::OpEq, m_accountId);
+	queryContact.where(_T("accountId"), MojDbQuery::OpEq, accountId);
 	err = m_dbClient.del(m_deleteContactsSlot, queryContact);
 	if (err != MojErrNone) {
 		MojString error;
@@ -306,7 +351,7 @@ MojErr OnEnabledHandler::accountDisabled()
 	// delete com.palm.imbuddystatus.libpurple record
 	MojDbQuery queryBuddyStatus;
 	queryBuddyStatus.from(IM_BUDDYSTATUS_KIND);
-	queryBuddyStatus.where(_T("accountId"), MojDbQuery::OpEq, m_accountId);
+	queryBuddyStatus.where(_T("accountId"), MojDbQuery::OpEq, accountId);
 	err = m_tempdbClient.del(m_deleteImBuddyStatusSlot, queryBuddyStatus);
 	if (err != MojErrNone) {
 		MojString error;
@@ -316,95 +361,9 @@ MojErr OnEnabledHandler::accountDisabled()
 
 	// now we need to tell libpurple to disconnect the account so we don't get more messages for it
 	// LoginCallbackInterface is null because we don't need to do any processing on the callback - all the DB kinds are already gone.
-	LibpurpleAdapter::logout(m_serviceName, m_username, NULL);
+	LibpurpleAdapter::logout(serviceName, username, NULL);
 
 	return MojErrNone;
-}
-
-MojErr OnEnabledHandler::findImLoginStateResult(MojObject& payload, MojErr err)
-{
-	MojLogTrace(IMServiceApp::s_log);
-
-	if (err != MojErrNone) {
-		MojString error;
-		MojErrToString(err, error);
-		MojLogCritical(IMServiceApp::s_log, _T("findImLoginStateResult failed: error %d - %s"), err, error.data());
-	}
-	else {
-		// "results" in result
-		MojObject results;
-		payload.get(_T("results"), results);
-
-		// check to see if array is empty - normally it will be if this is a newly created account. There should never be more than 1 item here
-		if (!results.empty()){
-
-			IMServiceHandler::logMojObjectJsonString(_T("findImLoginStateResult found existing imLoginState record: %s"), payload);
-
-			// if there is a record already, make sure the account id matches.
-			MojObject loginState;
-			MojObject::ConstArrayIterator itr = results.arrayBegin();
-			bool foundOne = false;
-			while (itr != results.arrayEnd()) {
-				if (foundOne) {
-					MojLogError(IMServiceApp::s_log,
-							_T("findImLoginStateResult: found more than one ImLoginState with same username/serviceName - using the first one"));
-					break;
-				}
-				loginState = *itr;
-				foundOne = true;
-				itr++;
-			}
-
-			MojString accountId;
-			MojErr err = loginState.getRequired("accountId", accountId);
-			if (err) {
-				MojLogError(IMServiceApp::s_log, _T("findImLoginStateResult: missing accountId in loginState entry"));
-			}
-			if (0 != accountId.compare(m_accountId)) {
-				MojLogError(IMServiceApp::s_log, _T("findImLoginStateResult: existing loginState record does not have matching account id. accountId = %s"), accountId.data());
-
-				// delete this record
-				MojObject idsToDelete;
-				MojString dbId;
-				err = loginState.getRequired("_id", dbId);
-				if (err) {
-					MojLogError(IMServiceApp::s_log, _T("findImLoginStateResult: missing dbId in loginState entry"));
-				}
-				else {
-				    idsToDelete.push(dbId);
-
-					// luna://com.palm.db/del '{"ids":[2]}'
-					MojLogInfo(IMServiceApp::s_log, _T("findImLoginStateResult: deleting loginState entry id: %s"), dbId.data());
-					err = m_dbClient.del(this->m_deleteImLoginStateSlot, idsToDelete.arrayBegin(), idsToDelete.arrayEnd());
-					if (err != MojErrNone) {
-						MojString error;
-						MojErrToString(err, error);
-						MojLogError(IMServiceApp::s_log, _T("findImLoginStateResult: db.del() failed: error %d - %s"), err, error.data());
-					}
-				}
-			}
-			// if the account id matches, leave the old record and we are done
-			else return MojErrNone;
-		}
-
-		// no existing record found or the old one was deleted - create a new one
-		MojLogInfo(IMServiceApp::s_log, _T("findImLoginStateResult: no matching loginState record found for %s, %s. creating a new one"), m_username.data(), m_serviceName.data());
-		MojObject imLoginState;
-		imLoginState.putString(_T("_kind"), IM_LOGINSTATE_KIND);
-		imLoginState.put(_T("accountId"), m_accountId);
-		imLoginState.put(_T("serviceName"), m_serviceName);
-		imLoginState.put(_T("username"), m_username);
-		imLoginState.putString(_T("state"), LOGIN_STATE_OFFLINE);
-		imLoginState.putInt(_T("availability"), PalmAvailability::ONLINE); //default to online so we automatically login at first
-		MojErr err = m_dbClient.put(m_addImLoginStateSlot, imLoginState);
-		if (err != MojErrNone) {
-			MojString error;
-			MojErrToString(err, error);
-			MojLogError(IMServiceApp::s_log, _T("findImLoginStateResult: db.put() failed: error %d - %s"), err, error.data());
-		}
-
-	}
-	return err;
 }
 
 MojErr OnEnabledHandler::addImLoginStateResult(MojObject& payload, MojErr err)

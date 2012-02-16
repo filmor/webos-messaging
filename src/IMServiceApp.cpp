@@ -26,14 +26,13 @@
 #include "IMServiceApp.h"
 #include "luna/MojLunaService.h"
 #include "LibpurpleAdapter.h"
-#include "IMServiceHandler.h"
 
-IMServiceApp* IMServiceApp::s_instance = NULL;
-const char* const IMServiceApp::ServiceName = _T("com.palm.imlibpurple");
-MojLogger IMServiceApp::s_log(_T("imlibpurple.serviceApp"));
+const char* const IMServiceApp::ServiceName = _T("org.webosinternals.imlibpurple");
+MojLogger IMServiceApp::s_log(_T("org.webosinternals.imlibpurple.serviceApp"));
 
 int main(int argc, char** argv)
 {
+purple_debug_set_enabled(TRUE);
 	IMServiceApp app;
 	LibpurpleAdapter::init();
 	int mainResult = app.main(argc, argv);
@@ -42,13 +41,6 @@ int main(int argc, char** argv)
 
 IMServiceApp::IMServiceApp()
 {
-	if (s_instance == NULL)
-		s_instance = this;
-}
-
-void IMServiceApp::Shutdown()
-{
-	s_instance->shutdown();
 }
 
 MojErr IMServiceApp::open()
@@ -65,14 +57,13 @@ MojErr IMServiceApp::open()
 	MojErrCheck(err);
 
 	// create and attach service handler
-	MojRefCountedPtr<IMServiceHandler> handler;
-	handler.reset(new IMServiceHandler(&m_service));
-	MojAllocCheck(handler.get());
+	m_handler.reset(new IMServiceHandler(&m_service));
+	MojAllocCheck(m_handler.get());
 
-	err = handler->init();
+	err = m_handler->init();
 	MojErrCheck(err);
 
-	err = m_service.addCategory(MojLunaService::DefaultCategory, handler.get());
+	err = m_service.addCategory(MojLunaService::DefaultCategory, m_handler.get());
 	MojErrCheck(err);
 
 	MojLogNotice(s_log, _T("%s started."), name().data());

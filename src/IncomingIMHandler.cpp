@@ -27,26 +27,21 @@
 #include "IncomingIMHandler.h"
 #include "db/MojDbQuery.h"
 #include "IMServiceApp.h"
-#include "IMServiceHandler.h"
 
 /*
  * Note the order of the globals inited below, it matters
  */
-IncomingIMHandler::IncomingIMHandler(MojService* service, IMServiceApp::Listener* listener)
+IncomingIMHandler::IncomingIMHandler(MojService* service)
 : m_IMSaveMessageSlot(this, &IncomingIMHandler::IMSaveMessageResult),
   m_service(service),
   m_dbClient(service)
 {
-	// tell listener we are now active
-	m_listener = listener;
-	m_listener->ProcessStarting();
+
 }
 
 
-IncomingIMHandler::~IncomingIMHandler()
-{
-	// tell listener we are done
-	m_listener->ProcessDone();
+IncomingIMHandler::~IncomingIMHandler() {
+
 }
 
 /**

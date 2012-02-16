@@ -28,7 +28,6 @@
 
 #include "core/MojService.h"
 #include "db/MojDbServiceClient.h"
-#include "IMServiceApp.h"
 
 // MojoDB fields
 // buddy status fields
@@ -53,7 +52,7 @@ public:
 	static const int errCannotProcessInput = 100;
 	static const int errGenericDBError = 101;
 
-	BuddyStatusHandler(MojService* service, IMServiceApp::Listener* listener);
+	BuddyStatusHandler(MojService* service);
 	virtual ~BuddyStatusHandler();
 	MojErr updateBuddyStatus(const char* accountId, const char* serviceName, const char* username, int availability,
 			const char* customMessage, const char* groupName, const char* buddyAvatarLoc);
@@ -96,9 +95,6 @@ private:
 	// Database client used to make any requests (put, watch, find, etc.) to Mojo DB
 	MojDbServiceClient m_dbClient;
 	MojDbServiceClient m_tempdbClient;
-
-	// listener to tell when we are ready to shutdown
-	IMServiceApp::Listener* m_listener;
 };
 
 #endif /* BuddyStatusHandler_H_ */
