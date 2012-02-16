@@ -9,7 +9,7 @@ def configure(conf):
 
     conf.env.append_value("LIB_PALM_BUILD", ["lunaservice", "mojoluna",
                                   "mojocore", "cjson", "mojodb"])
-    conf.env.append_value("DEFINES_PALM_BUILD", ["MOJ_LINUX"])
+    conf.env.append_value("DEFINES_PALM_BUILD", ["MOJ_LINUX", "DEVICE"])
     conf.env.append_value("INCLUDES_PALM_BUILD", [libpurple.get_path()])
 
 def build(bld):
