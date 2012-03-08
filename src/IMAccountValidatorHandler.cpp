@@ -25,10 +25,14 @@
 #include "savedstatuses.h"
 #include "core/MojServiceRequest.h"
 
+#include "Protocol.hpp"
+#include "Util.hpp"
+
 #define IMVersionString  "IMAccountValidator 6-8 1pm starting...."
 
 const IMAccountValidatorHandler::Method IMAccountValidatorHandler::s_methods[] = {
 	{_T("checkCredentials"), (Callback) &IMAccountValidatorHandler::validateAccount},
+    {_T("getOptions"), (Callback) &IMAccountValidatorHandler::getOptions},
 	{_T("logout"), (Callback) &IMAccountValidatorHandler::logout},
 	{NULL, NULL} };
 
@@ -104,9 +108,29 @@ MojErr IMAccountValidatorHandler::init(IMAccountValidatorApp* const app)
  *
  */
 
+MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, const MojObject payload)
+{
+    MojObject config;
+    payload.get("config", config);
+    MojString prpl = Util::get(config, "_prpl");
+
+    try
+    {
+        // TODO: We don't need a class for this!
+        MojObject options = Messaging::getProtocolOptions(prpl);
+        serviceMsg->replySuccess(options);
+    }
+    catch (Util::MojoException const& exc)
+    {
+        // XXX: Error
+        return MojErrInvalidArg;
+    }
+
+    return MojErrNone;
+}
+
 MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-
 	// remember the message so we can reply back in the callback
 	m_serviceMsg = serviceMsg;
 
@@ -117,77 +141,41 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 	// log the parameters
 	privateLogMojObjectJsonString(_T("validateAccount payload: %s"), payload);
 
-	// get the username and password from the input payload
+	// get the username, password, and config from the input payload
 	MojString username;
-	MojString templateId;
-	bool found = false;
-	MojString errorText;
-	char *prplProtocolId = NULL;
+    MojObject config;
 
-	MojErr err = payload.get(_T("username"), username, found);
-	if (!found) {
-		errorText.assign(_T("Missing username in payload."));
-		result = false;
-	}
-	else {
-		err = payload.get(_T("password"), m_password, found);
-		if (!found) {
-			errorText.assign(_T("Missing password in payload."));
-			result = false;
-		}
-		else {
-		    err = payload.get(_T("templateId"), templateId, found);
-			if (!found) {
-				errorText.assign(_T("Missing templateId in payload."));
-				result = false;
-			}
-			else {
-				// figure out which service we are validating from templateID - "com.palm.aol" or "com.palm.icq"
-				if (0 == templateId.compare(TEMPLATE_AIM))
-					prplProtocolId = strdup(PURPLE_AIM);
-				else if (0 == templateId.compare(TEMPLATE_ICQ))
-					prplProtocolId = strdup(PURPLE_ICQ);
-				else {
-					errorText.assign(_T("Invalid templateId in payload."));
-					result = false;
-				}
-			}
-		}
-	}
+    try
+    {
+        username = Util::get(payload, "username");
+        m_password = Util::get(payload, "password");
+        MojString templateId = Util::get(payload, "templateId");
 
-	if (!result) {
-		returnValidateFailed(MojErrInvalidArg, errorText);
-		// need to exit gracefully
-		m_clientApp->shutdown();
-		return MojErrNone;
-	}
+        payload.get("config", config);
+
+        MojString prpl = Util::get(config, "_prpl");
+
+        m_account = Messaging::createPurpleAccount(prpl, username, config);
+    }
+    catch(Util::MojoException const& exc)
+    {
+        MojString error;
+        error.assign(exc.what().c_str());
+        returnValidateFailed(MojErrInvalidArg, error);
+        m_clientApp->shutdown();
+        return MojErrNone;
+    }
 
 	// Input is OK - validate the account
-	MojLogInfo(IMAccountValidatorApp::s_log, "validateAccount: Logging in...username: %s, password: ****removed****, templateId: %s", username.data(), templateId.data());
+	MojLogInfo(IMAccountValidatorApp::s_log, "validateAccount: Logging in...username: %s, password: ****removed****", username.data());
 
-	// strip off the "@aol.com"
-	transportFriendlyUserName = getPrplFriendlyUsername(prplProtocolId, username.data());
+    purple_account_set_password(m_account, m_password.data());
+    /* It's necessary to enable the account first. */
+    purple_account_set_enabled(m_account, UI_ID, TRUE);
 
-	// save the username with the "@aol.com" to return later
-	err = getMojoFriendlyUsername(prplProtocolId, username.data());
-
-	/* Create the account */
-	m_account = purple_account_new(transportFriendlyUserName, prplProtocolId);
-	if (!m_account) {
-		result = false;
-	}
-	else {
-		purple_account_set_password(m_account, m_password.data());
-		/* It's necessary to enable the account first. */
-		purple_account_set_enabled(m_account, UI_ID, TRUE);
-
-	   /* Now, to activate the account with status=invisible so the user doesn't briefly show as online. */
-	   status = purple_savedstatus_new(NULL, PURPLE_STATUS_INVISIBLE);
-	   purple_savedstatus_activate(status);
-	}
-
-	free(transportFriendlyUserName);
-	free(prplProtocolId);
+   /* Now, to activate the account with status=invisible so the user doesn't briefly show as online. */
+    status = purple_savedstatus_new(NULL, PURPLE_STATUS_INVISIBLE);
+    purple_savedstatus_activate(status);
 
 	return MojErrNone;
 }
@@ -204,67 +192,6 @@ MojErr IMAccountValidatorHandler::logout(MojServiceMessage* serviceMsg, const Mo
 	purple_account_disconnect(m_account);
 	return MojErrNone;
 }
-
-/*
- * This method handles special cases where the username passed by the mojo side does not satisfy a particular prpl's requirement
- * (e.g. for logging into AIM, the mojo service uses "palmpre@aol.com", yet the aim prpl expects "palmpre"; same scenario with yahoo)
- * Free the returned string when you're done with it
- *
- * Copied from LibPurpleAdapter.cpp getPrplFriendlyUsername()
- */
-MojChar* IMAccountValidatorHandler::getPrplFriendlyUsername(const MojChar* serviceName, const MojChar* username)
-{
-	if (!username || !serviceName)
-	{
-		return strdup("");
-	}
-	char* transportFriendlyUsername = strdup(username);
-	if (strcmp(serviceName, PURPLE_AIM) == 0)
-	{
-		// Need to strip off @aol.com, but not @aol.com.mx
-		const char* extension = strstr(username, "@aol.com");
-		if (extension != NULL && strstr(extension, "aol.com.") == NULL)
-		{
-			strtok(transportFriendlyUsername, "@");
-		}
-	}
-	else if (strcmp(serviceName, PURPLE_ICQ) == 0)
-	{
-		if (strstr(username, "@icq.com") != NULL)
-		{
-			strtok(transportFriendlyUsername, "@");
-		}
-	}
-	return transportFriendlyUsername;
-}
-
-/*
- * The messaging service expects the username to be in the username@domain.com format, whereas the AIM prpl uses the username only
- */
-MojErr IMAccountValidatorHandler::getMojoFriendlyUsername(const char* serviceName, const char* username)
-{
-	MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: serviceName %s, username %s", serviceName, username);
-	if (!username || !serviceName)
-	{
-		return MojErrInvalidArg;
-	}
-
-	if (strcmp(serviceName, PURPLE_AIM) == 0 && strchr(username, '@') == NULL)
-	{
-		m_mojoUsername.assign(username);
-		m_mojoUsername.append("@aol.com");
-		MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
-	}
-	else if (strcmp(serviceName, PURPLE_ICQ) == 0 && strchr(username, '@') == NULL)
-	{
-		m_mojoUsername.assign(username);
-		m_mojoUsername.append("@icq.com");
-		MojLogInfo(IMAccountValidatorApp::s_log, "getMojoFriendlyUsername: new username %s", m_mojoUsername.data());
-	}
-
-	return MojErrNone;
-}
-
 
 /*
  * return json like so

@@ -32,10 +32,6 @@
 // forward declaration to avoid circular #include refs
 class IMAccountValidatorApp;
 
-#define PURPLE_AIM "prpl-aim"
-#define PURPLE_ICQ "prpl-icq"
-#define TEMPLATE_AIM "com.palm.aol"
-#define TEMPLATE_ICQ "com.palm.icq"
 #define PURPLE_CALLBACK(func) ((PurpleCallback)func)
 #define UI_ID        "accountValidator"
 
@@ -99,6 +95,7 @@ private:
 	MojString m_password;
 	MojString m_mojoUsername;
 
+    MojErr getOptions(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr validateAccount(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr logout(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr getMojoFriendlyUsername(const char* serviceName, const char* username);

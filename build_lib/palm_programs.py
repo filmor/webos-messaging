@@ -14,16 +14,21 @@ def configure(conf):
 
 def build(bld):
     source_dir = "src"
+    common = [join(source_dir, i) + ".cpp" for i in ("Protocol", "Util")]
     av_glob = join(source_dir, "IMAccountValidator*.cpp")
-    pt_glob = join(source_dir, "*.cpp")
+#    pt_glob = join(source_dir, "*.cpp")
+
+    bld.objects(target="palm_common",
+                source=common,
+                use="GLIB BASE PALM_BUILD purple")
 
     bld.program(target=join("bin", "imaccountvalidator"),
                 source=bld.path.ant_glob(av_glob),
-                use="GLIB BASE PALM_BUILD purple",
+                use="GLIB BASE PALM_BUILD purple palm_common",
                )
 
-    bld.program(target=join("bin", "imlibpurpletransport"),
-                source=bld.path.ant_glob(pt_glob, excl=[av_glob]),
-                use="GLIB BASE PALM_BUILD purple"
-               )
+#    bld.program(target=join("bin", "imlibpurpletransport"),
+#                source=bld.path.ant_glob(pt_glob, excl=[av_glob]),
+#                use="GLIB BASE PALM_BUILD purple"
+#               )
 

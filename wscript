@@ -7,12 +7,6 @@ APPNAME='messaging-plugins'
 
 TOOLDIR='build_lib'
 
-palm_programs = [
-        "imaccountvalidator-1.0",
-        "imlibpurpleservice-1.0",
-        "imlibpurpletransport",
-        ]
-
 def options(opt):
     opt.load('compiler_c compiler_cxx')
     opt.load('libpurple palm_programs', tooldir=TOOLDIR)
