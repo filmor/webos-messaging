@@ -110,9 +110,7 @@ MojErr IMAccountValidatorHandler::init(IMAccountValidatorApp* const app)
 
 MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-    MojObject config;
-    payload.get("config", config);
-    MojString prpl = Util::get(config, "_prpl");
+    MojString prpl = Util::get(payload, "prpl");
 
     try
     {
