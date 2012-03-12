@@ -12,7 +12,7 @@ function getOptions() {
 }
 
 enyo.kind({
-    name: "Messaging.Options",
+    name: "Purple.Options",
     kind: "RowGroup",
     caption: "Advanced Options",
 
@@ -47,7 +47,7 @@ enyo.kind({
                     autocorrect: false,
                     spellcheck: false,
                     value: node.default_value,
-                    onchange: "onStrInput"
+                    onchange: "onChange"
                 }
             }
             else if (node.type == "int")
@@ -67,7 +67,7 @@ enyo.kind({
                 innerComponent = {
                     kind: "CheckBox",
                     checked: node.default_value,
-                    onclick: "onCheck"
+                    onChange: "onCheck"
                 };
             }
             else if (node.type == "list")
@@ -83,7 +83,7 @@ enyo.kind({
                 innerComponent = {
                     kind: "ListSelector",
                     items: items,
-                    onChange: "onSelect"
+                    onChange: "onChange"
                 };
             }
             else
@@ -128,15 +128,11 @@ enyo.kind({
         // TODO
     },
 
-    onStrInput: function(inSender) {
+    onChange: function(inSender) {
         this.doPreferenceChanged(inSender.name, inSender.getValue());
     },
 
     onCheck: function(inSender) {
         this.doPreferenceChanged(inSender.name, inSender.getChecked());
-    },
-
-    onSelect: function(inSender) {
-        this.doPreferenceChanged(inSender.name, inSender.getValue());
     }
 })

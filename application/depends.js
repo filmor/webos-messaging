@@ -1,3 +1,4 @@
 enyo.depends(
-    "source/Options.js"
+    "source/Options.js",
+    "source/Validator.js"
 );
