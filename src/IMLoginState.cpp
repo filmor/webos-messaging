@@ -34,6 +34,8 @@
 #include "IMServiceHandler.h"
 #include "IMMessage.h"
 
+#include "Util.hpp"
+
 /*
  * IMLoginState
  */
@@ -234,7 +236,8 @@ void IMLoginStateHandler::loginForTesting(MojServiceMessage* serviceMsg, const M
 	loginParams.connectionType = "wan";
 	loginParams.localIpAddress = NULL;
 	loginParams.accountId = "";
-	LibpurpleAdapter::login(&loginParams, m_loginStateController);
+    MojObject config;
+	LibpurpleAdapter::login(&loginParams, m_loginStateController, config);
 	serviceMsg->replySuccess();
 }
 /*
@@ -502,6 +505,11 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 			MojLogError(IMServiceApp::s_log, _T("Password is empty. I think this is not ok."));
 		}
 
+        MojObject config;
+        payload.get("config", config);
+
+        MojString prpl = Util::get(config, "_prpl");
+
 		MojString serviceName = m_workingLoginState.getServiceName();
 		MojString username = m_workingLoginState.getUsername();
 
@@ -522,7 +530,7 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 		// Login may be asynchronous with the result callback in loginResult().
 		// Also deal with immediate results
 		LibpurpleAdapter::LoginResult result;
-		result = LibpurpleAdapter::login(&loginParams, m_loginStateController);
+		result = LibpurpleAdapter::login(&loginParams, m_loginStateController, config);
 		if (result == LibpurpleAdapter::FAILED)
 		{
 			handleBadCredentials(serviceName, username, ERROR_GENERIC_ERROR);

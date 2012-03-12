@@ -95,7 +95,7 @@ public:
 	static void init();
 	static void assignIMLoginState(LoginCallbackInterface* loginState);
 	static void assignIMServiceHandler(IMServiceCallbackInterface* incomingIMHandler);
-	static LoginResult login(LoginParams* params, LoginCallbackInterface* loginState);
+	static LoginResult login(LoginParams* params, LoginCallbackInterface* loginState, MojObject config);
 	// return false if already logged out
 	static bool logout(const char* serviceName, const char* username, LoginCallbackInterface* loginState);
 	static bool getFullBuddyList(const char* serviceName, const char* username);

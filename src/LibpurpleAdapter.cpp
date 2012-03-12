@@ -66,6 +66,8 @@
 //#include <json_utils.h>
 #include "IMServiceApp.h"
 
+#include "Util.hpp"
+
 static const guint PURPLE_GLIB_READ_COND  = (G_IO_IN | G_IO_HUP | G_IO_ERR);
 static const guint PURPLE_GLIB_WRITE_COND = (G_IO_OUT | G_IO_HUP | G_IO_ERR | G_IO_NVAL);
 static const guint CONNECT_TIMEOUT_SECONDS = 45;
@@ -423,35 +425,6 @@ static const char* getMojoFriendlyErrorCode(PurpleConnectionError type)
 		mojoFriendlyErrorCode = ERROR_GENERIC_ERROR;
 	}
 	return mojoFriendlyErrorCode;
-}
-
-/*
- * Given mojo-friendly serviceName, it will return prpl-specific protocol_id (e.g. given "type_aim", it will return "prpl-aim")
- * Free the returned string when you're done with it 
- */
-static char* getPrplProtocolIdFromServiceName(const char* serviceName)
-{
-	if (!serviceName || serviceName[0] == 0)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getPrplProtocolIdFromServiceName called with empty serviceName"));
-		return strdup("");
-	}
-	GString* prplProtocolId = g_string_new("prpl-");
-
-	if (strcmp(serviceName, SERVICENAME_GTALK) == 0)
-	{
-		// Special case for gtalk where the mojo serviceName is "type_gtalk" and the prpl protocol_id is "prpl-jabber"
-		g_string_append(prplProtocolId, "jabber");
-	}
-	else
-	{
-		const char* stringChopper = serviceName;
-		stringChopper += strlen("type_");
-		g_string_append(prplProtocolId, stringChopper);
-	}
-	char* prplProtocolIdToReturn = strdup(prplProtocolId->str);
-	g_string_free(prplProtocolId, TRUE);
-	return prplProtocolIdToReturn;
 }
 
 /*
@@ -1428,13 +1401,11 @@ static void initializeLibpurple()
 /*
  * Service methods
  */
-LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, LoginCallbackInterface* loginState)
+LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, LoginCallbackInterface* loginState, MojObject config)
 {
 	LoginResult result = OK;
 
 	PurpleAccount* account;
-	char* prplProtocolId = NULL;
-	char* transportFriendlyUserName = NULL;
 	char* accountKey = NULL;
 	bool accountIsAlreadyOnline = FALSE;
 	bool accountIsAlreadyPending = FALSE;
@@ -1446,8 +1417,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	if (!params || !params->serviceName || params->serviceName[0] == 0 || !params->username || params->username[0] == 0)
 	{
 		MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login with empty username or serviceName"));
-		result = INVALID_CREDENTIALS;
-		goto error;
+		return INVALID_CREDENTIALS;
 	}
 
 	if (!params->localIpAddress)
@@ -1550,8 +1520,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	if (params->password == NULL || params->password[0] == 0)
 	{
 		MojLogError(IMServiceApp::s_log, _T("Error: null or empty password trying to log in to servicename %s"), params->serviceName);
-		result = INVALID_CREDENTIALS;
-		goto error;
+	    return INVALID_CREDENTIALS;
 	}
 	else
 	{
@@ -1570,8 +1539,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			 * If we're on device you should not accept an empty ipAddress; it's mandatory to be provided
 			 */
 			MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login with missing localIpAddress"));
-			result = FAILED;
-			goto error;
+			return FAILED;
 #endif
 		}
 
@@ -1581,34 +1549,24 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			g_hash_table_insert(s_connectionTypeData, accountKey, strdup(params->connectionType));
 		}
 
-		prplProtocolId = getPrplProtocolIdFromServiceName(params->serviceName);
-
 		/*
 		 * If we've already logged in to this account before then re-use the old PurpleAccount struct
 		 */
-		transportFriendlyUserName = getPrplFriendlyUsername(params->serviceName, params->username);
 		account = (PurpleAccount*)g_hash_table_lookup(s_offlineAccountData, accountKey);
 		if (!account)
 		{
+            MojString username;
+            username.append(params->username);
+
 			/* Create the account */
-			account = purple_account_new(transportFriendlyUserName, prplProtocolId);
+			account = Util::createPurpleAccount(username, config);
 			if (!account)
 			{
 				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login failed to create new Purple account"));
-				result = FAILED;
-				goto error;
+				return FAILED;
 			}
 		}
 
-		if (strcmp(prplProtocolId, "prpl-jabber") == 0 && g_str_has_suffix(transportFriendlyUserName, "@gmail.com") == FALSE &&
-			g_str_has_suffix(transportFriendlyUserName, "@googlemail.com") == FALSE)
-		{
-			/*
-			 * Special case for gmail... don't try to connect to mydomain.com if the username is me@mydomain.com. They might not have
-			 * setup the SRV record. Always connect to gmail.
-			 */
-			purple_account_set_string(account, "connect_server", "talk.google.com");
-		}
 		MojLogInfo(IMServiceApp::s_log, _T("Logging in..."));
 
 		purple_account_set_password(account, params->password);
@@ -1643,17 +1601,6 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			purple_savedstatus_set_message(savedStatus, params->customMessage);
 		}
 		purple_savedstatus_activate_for_account(savedStatus, account);
-	}
-
-	error:
-
-	if (prplProtocolId)
-	{
-		free(prplProtocolId);
-	}
-	if (transportFriendlyUserName)
-	{
-		free(transportFriendlyUserName);
 	}
 
 	return result;

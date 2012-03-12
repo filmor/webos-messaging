@@ -25,7 +25,6 @@
 #include "savedstatuses.h"
 #include "core/MojServiceRequest.h"
 
-#include "Protocol.hpp"
 #include "Util.hpp"
 
 #define IMVersionString  "IMAccountValidator 6-8 1pm starting...."
@@ -115,7 +114,7 @@ MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, cons
     try
     {
         // TODO: We don't need a class for this!
-        MojObject options = Messaging::getProtocolOptions(prpl);
+        MojObject options = Util::getProtocolOptions(prpl);
         serviceMsg->replySuccess(options);
     }
     catch (Util::MojoException const& exc)
@@ -151,9 +150,7 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 
         payload.get("config", config);
 
-        MojString prpl = Util::get(config, "_prpl");
-
-        m_account = Messaging::createPurpleAccount(prpl, username, config);
+        m_account = Util::createPurpleAccount(username, config);
     }
     catch(Util::MojoException const& exc)
     {

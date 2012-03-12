@@ -1,6 +1,6 @@
-#include "Protocol.hpp"
+#include "Util.hpp"
 
-namespace Messaging
+namespace Util
 {
 
     namespace 
@@ -96,9 +96,9 @@ namespace Messaging
         return result;
     }
 
-    PurpleAccount* createPurpleAccount(MojString prpl, MojString username,
-                                       MojObject config)
+    PurpleAccount* createPurpleAccount(MojString username, MojObject config)
     {
+        MojString prpl = Util::get(config, "_prpl");
         PurplePluginProtocolInfo* info = getProtocolInfo(prpl.data());
 
         // TODO: Strip of possible junk here!
