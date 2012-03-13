@@ -109,17 +109,19 @@ MojErr IMAccountValidatorHandler::init(IMAccountValidatorApp* const app)
 
 MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-    MojString prpl = Util::get(payload, "prpl");
-
     try
     {
-        // TODO: We don't need a class for this!
+        MojString prpl = Util::get(payload, "prpl");
+ 
         MojObject options = Util::getProtocolOptions(prpl);
-        serviceMsg->replySuccess(options);
+
+        serviceMsg->reply(options);
     }
     catch (Util::MojoException const& exc)
     {
-        // XXX: Error
+        MojString error;
+        error.assign(exc.what().c_str(), exc.what().size());
+        serviceMsg->replyError(MojErrInvalidArg, error);
         return MojErrInvalidArg;
     }
 

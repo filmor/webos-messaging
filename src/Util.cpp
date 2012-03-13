@@ -15,7 +15,7 @@ namespace Util
             std::string error_text = "Missing '";
             error_text += key;
             error_text += "' in payload.";
-            throw MojoException(error_text.c_str());
+            throw MojoException(error_text);
         }
 
         return result;

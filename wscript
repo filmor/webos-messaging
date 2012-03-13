@@ -14,10 +14,10 @@ def options(opt):
                    help="Protocols")
 
 def configure(conf):
-    conf.parse_flags("-Wall -Werror -O2 -march=armv7-a", "BASE")
     conf.env.INCLUDES = []
-    conf.env.CFLAGS = []
-    conf.env.CXXFLAGS = []
+    # TODO: Werror for my own code
+    conf.env.CFLAGS = ["-ggdb", "-Wall"]
+    conf.env.CXXFLAGS = ["-ggdb", "-Wall"]
     conf.env.ARCH = "-march=armv7-a"
     conf.env.append_value('LINKFLAGS_BASE', [])
     conf.env.append_value("LIBPATH_BASE", [join("..", TOOLDIR, "lib")])
@@ -26,8 +26,9 @@ def configure(conf):
     conf.env.append_value("LIB_GLIB", ["glib-2.0", "gobject-2.0", "gmodule-2.0"])
     conf.env.append_value("LIBPATH_GLIB", [join("..", TOOLDIR, "lib")])
 
+    # TODO: Parse plugin files to find static name, s.t. autoaccept works again
     plugins = [
-        "autoaccept",
+#        "autoaccept",
         "idle",
         "joinpart",
         "log_reader",

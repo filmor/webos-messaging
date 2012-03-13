@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <core/MojObject.h>
 #include <core/MojString.h>
+#include <core/MojJson.h>
 
 #include <purple.h>
 

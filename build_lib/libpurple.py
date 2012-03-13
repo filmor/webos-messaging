@@ -118,7 +118,7 @@ void static_proto_init()\\
 
 
 def build(bld):
-    use = ["GLIB", "XML", "GNUTLS", "PURPLE_BUILD"]
+    use = ["BASE", "GLIB", "XML", "GNUTLS", "PURPLE_BUILD"]
 
     for i in bld.env.PURPLE_PROTOCOLS:
         exclude = ["win32"]

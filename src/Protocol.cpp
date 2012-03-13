@@ -12,14 +12,12 @@ namespace Util
             PurplePlugin* prpl = purple_find_prpl(prpl_id);
 
             if (prpl == NULL)
-                // ERROR!
-                throw "Error";
+                throw MojoException("Couldn't find prpl");
 
             PurplePluginProtocolInfo* result = PURPLE_PLUGIN_PROTOCOL_INFO(prpl);
 
             if (result == NULL)
-                // ERROR!
-                throw "Error";
+                throw MojoException("Couldn't find prpl");
 
             return result;
         }
@@ -51,36 +49,48 @@ namespace Util
             {
             case PURPLE_PREF_BOOLEAN:
                 node.putString("type", "bool");
-                node.putBool("default",
+                node.putBool("default_value",
                     purple_account_option_get_default_bool(option)
                     );
                 break;
 
             case PURPLE_PREF_INT:
                 node.putString("type", "int");
-                node.putInt("default",
+                node.putInt("default_value",
                     purple_account_option_get_default_int(option)
                     );
                 break;
 
             case PURPLE_PREF_STRING:
                 node.putString("type", "string");
-                node.putString("default",
-                    purple_account_option_get_default_string(option)
-                    );
+                {
+                    const char* def
+                        = purple_account_option_get_default_string(option);
+                    node.putString("default_value", def ? def : "");
+                }
                 break;
 
             case PURPLE_PREF_STRING_LIST:
                 node.putString("type", "list");
-
-                for (GList* list = purple_account_option_get_list(option);
-                     list != NULL; list = list->next)
                 {
-                    PurpleKeyValuePair* kvp = (PurpleKeyValuePair*)list;
-                    // XXX: Dangerous!
-                    choices.putString((MojChar*)kvp->key, (MojChar*)kvp->value);
+                    MojObject choices;
+
+                    for (GList* list = purple_account_option_get_list(option);
+                         list != NULL; list = list->next)
+                    {
+                        PurpleKeyValuePair* kvp = (PurpleKeyValuePair*)list->data;
+                        // XXX: Dangerous!
+                        if (kvp->key && kvp->value)
+                            choices.putString((const char*)kvp->value,
+                                              (const char*)kvp->key);
+                    }
+                    node.put("choices", choices);
+
+                    const char* def
+                        = purple_account_option_get_default_list_value(option);
+                    node.putString("default_value", def ? def : "");
                 }
-                node.put("choices", choices);
+
 
                 // TODO: Default value purple_account_option_get_list_default
                 //       Could be the same as the first value of the list
