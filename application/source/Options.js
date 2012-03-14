@@ -1,37 +1,27 @@
-function getOptions() {
-    return {
-            "bla" : { type: "int", text: "Integer parameter", default_value:1 },
-            "blubb": { type: "bool", text: "Bool parameter", default_value: true },
-            "brabbel": { type: "list", text: "List parameter",
-                         choices: {
-                            pizza: "Pizza",
-                            pasta: "Pasta"
-                         }
-                    }
-        }
-}
 
 enyo.kind({
     name: "Purple.Options",
-    kind: "RowGroup",
-    caption: "Advanced Options",
+    kind: "Control",
 
     events: {
         onPreferenceChanged: ""
     },
 
-    create: function() {
-        this.inherited(arguments);
-
-        // TODO: call getOptions, store in options
-        
-        var options = getOptions();
-
-        this._makeComponents(options);
-        this.render();
+    published: {
+        options: {}
     },
 
-    _makeComponents: function(options) {
+    setOptions: function(options) {
+        if (this.$._group)
+            this.$._group.destroy();
+
+        this.createComponent({
+            name: "_group",
+            kind: "RowGroup",
+            caption: $L("Advanced Options")
+        })
+
+        this.$.options = options;
         console.log(options);
         for (var name in options)
         {
@@ -94,7 +84,7 @@ enyo.kind({
             innerComponent["name"] = name;
             console.log(innerComponent);
 
-            this.createComponent({
+            this.$._group.createComponent({
                 layoutKind: "HFlexLayout",
                 components: [
                     {content: node.text, flex: 1},

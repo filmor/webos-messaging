@@ -1,0 +1,13 @@
+{
+    "returnValue": true,
+    "options": {
+        "bla" : { "type": "int", "text": "Integer parameter", "default_value":1 },
+        "blubb": { "type": "bool", "text": "Bool parameter", "default_value": true },
+        "brabbel": { "type": "list", "text": "List parameter",
+                     "choices": {
+                        "pizza": "Pizza",
+                        "pasta": "Pasta"
+                     }
+                }
+    }
+}

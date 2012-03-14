@@ -1,7 +1,7 @@
 enyo.kind({
     name: "Purple.AccountService",
     kind: "PalmService",
-    service: "palm://org.webosinternals.libpurple.imaccountvalidator"
+    service: "palm://org.webosinternals.libpurple.imaccountvalidator/"
 });
 
 enyo.kind({
@@ -9,6 +9,24 @@ enyo.kind({
     kind: "VFlexBox",
     className: "basic-back",
     width: "100%",
+
+    create: function() {
+        this.inherited(arguments);
+
+        this.$.getOptions.call({
+            params: [{ prpl: "prpl-icq", locale: "de" }],
+        });
+    },
+
+    gotOptions: function(inSender, inResponse) {
+        this.$.options.setOptions(inResponse.options);
+        this.render();
+    },
+
+    prefChanged: function() {
+        console.log(arguments);
+    },
+
     components: [
         {
             kind: "Toolbar",
@@ -62,6 +80,8 @@ enyo.kind({
                         },
                         {
                             kind: "Purple.Options",
+                            name: "options",
+                            onPreferenceChanged: "prefChanged"
                         },
                         { name: "createButton", kind: "ActivityButton",
                           caption: $L("SIGN IN")
@@ -69,6 +89,15 @@ enyo.kind({
                     ]
                 }
             ]
+        },
+        {
+            name: "getOptions",
+            kind: "Purple.AccountService",
+            onSuccess: "gotOptions",
+        },
+        {
+            name: "validateAccount",
+            kind: "Purple.AccountService"
         }
     ]
 });
