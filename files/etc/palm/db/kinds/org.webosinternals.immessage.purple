@@ -1,7 +1,7 @@
 {
-    "id": "com.palm.immessage.libpurple:1",
+    "id": "org.webosinternals.immessage.purple:1",
     "extends": ["com.palm.immessage:1"],
-    "owner": "com.palm.imlibpurple",
+    "owner": "org.webosinternals.purple.transport",
     "sync": true,
     "indexes": [
         {

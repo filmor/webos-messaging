@@ -1489,7 +1489,7 @@ MojErr IMLoginSyncStateHandler::removeSyncStateResult(MojObject& result, MojErr 
 
 	// bus address
 	MojString busAddr;
-	busAddr.assign(_T("org.webosinternals.purple.im"));
+	busAddr.assign(_T("org.webosinternals.purple.transport"));
 	props.putString(_T("busAddress"), busAddr);
 
 	// sync state - error

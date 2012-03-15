@@ -1,0 +1,49 @@
+#!/bin/sh
+
+APPID=${APPID}
+APPS=/media/cryptofs/apps
+APPDIR=${APPS}/usr/palm/applications/${APPID}
+
+#Kill org.webosinternals.imlibpurpletransport if it's running
+killall -HUP ${APPID}.transport || true
+killall -HUP ${APPID}.transport || true
+killall -HUP ${APPID}.transport || true
+
+#Kill org.webosinternals.imaccountvalidator if it's running
+killall -HUP ${APPID}.validator || true
+killall -HUP ${APPID}.validator || true
+killall -HUP ${APPID}.validator || true
+
+# Cleanup roles
+rm -f /var/palm/ls2/roles/prv/${APPID}.validator.json
+rm -f /var/palm/ls2/roles/prv/${APPID}.transport.json
+
+rm -f /var/palm/ls2/roles/pub/${APPID}.validator.json
+rm -f /var/palm/ls2/roles/pub/${APPID}.transport.json
+
+# Cleanup System Services
+rm -f /var/usr/sbin/${APPID}.validator
+rm -f /var/usr/sbin/${APPID}.transport
+
+# Cleanup DB files
+rm -f -r /etc/palm/activities/${APPID}
+rm -f /etc/palm/tempdb/kinds/org.webosinternals.imbuddystatus.purple
+rm -f /etc/palm/db/kinds/org.webosinternals.contact.purple
+rm -f /etc/palm/db/kinds/org.webosinternals.imcommand.purple
+rm -f /etc/palm/db/kinds/${APPID}.transport.account
+rm -f /etc/palm/db/kinds/org.webosinternals.imloginstate.purple
+rm -f /etc/palm/db/kinds/org.webosinternals.immessage.purple
+rm -f /etc/palm/db/permissions/org.webosinternals.imcommand.purple
+rm -f /etc/palm/db/permissions/org.webosinternals.imgroupchat.purple
+rm -f /etc/palm/db/permissions/org.webosinternals.imloginstate.purple
+rm -f /etc/palm/db/permissions/org.webosinternals.immessage.purple
+rm -f /etc/palm/db/permissions/${APPID}.transport.account
+
+# Cleanup Accounts
+rm -f -r ${APPS}/usr/palm/accounts/${APPID}.*
+
+# Cleanup Application
+rm -f -r ${APPDIR}
+
+# We are done
+exit 0

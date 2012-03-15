@@ -1,7 +1,7 @@
 {
-    "id": "com.palm.imloginstate.libpurple:1",
+    "id": "org.webosinternals.imloginstate.purple:1",
     "extends": ["com.palm.imloginstate:1"],
-    "owner": "com.palm.imlibpurple",
+    "owner": "org.webosinternals.purple.transport",
     "indexes": [
         {
             "name": "byrevision",

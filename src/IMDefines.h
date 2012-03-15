@@ -29,15 +29,15 @@
 /*
  * DB Kinds
  */
-#define IM_LOGINSTATE_KIND "com.palm.imloginstate.libpurple:1"
-#define IM_IMMESSAGE_KIND "com.palm.immessage.libpurple:1"
-#define IM_IMCOMMAND_KIND "com.palm.imcommand.libpurple:1"
-#define IM_CONTACT_KIND "com.palm.contact.libpurple:1"
+#define IM_LOGINSTATE_KIND "org.webosinternals.imloginstate.purple:1"
+#define IM_IMMESSAGE_KIND "org.webosinternals.immessage.purple:1"
+#define IM_IMCOMMAND_KIND "org.webosinternals.imcommand.purple:1"
+#define IM_CONTACT_KIND "org.webosinternals.contact.purple:1"
 
 /*
  * temp db kinds
  */
-#define IM_BUDDYSTATUS_KIND "com.palm.imbuddystatus.libpurple:1"
+#define IM_BUDDYSTATUS_KIND "org.webosinternals.imbuddystatus.purple:1"
 #define IM_SYNCSTATE_KIND "com.palm.account.syncstate:1"
 
 

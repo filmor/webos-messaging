@@ -29,7 +29,7 @@
 #include "IMServiceHandler.h"
 
 IMServiceApp* IMServiceApp::s_instance = NULL;
-const char* const IMServiceApp::ServiceName = _T("com.palm.imlibpurple");
+const char* const IMServiceApp::ServiceName = _T("org.webosinternals.purple.transport");
 MojLogger IMServiceApp::s_log(_T("imlibpurple.serviceApp"));
 
 int main(int argc, char** argv)

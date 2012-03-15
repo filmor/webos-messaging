@@ -1,0 +1,42 @@
+{
+	"start": true,
+	"activity": {
+		"name": "IM Service pending commands watch",
+		"description": "IM DB command watch created by Configurator",
+		"type": {
+          	"foreground": true,
+          	"power": true,
+          	"powerDebounce": true,
+          	"explicit": true
+        },
+        "requirements": {
+		    "internet": true
+		},
+        "trigger": {
+			"method": "palm://com.palm.db/watch",
+			"key": "fired",
+			"params": {
+				"subscribe": true,
+				"query": {
+					"from": "org.webosinternals.imcommand.purple:1",
+					"where": [
+						{
+                            "op": "=",
+                            "prop": "handler",
+                            "val": "transport"
+                        },
+						{
+                            "op": "=",
+                            "prop": "status",
+                            "val": "pending"
+                        },
+					]
+				}
+			}
+		},
+		"callback": {
+			"method": "palm://org.webosinternals.purple.transport/sendCommand",
+			"params": {}
+		}
+	}
+}

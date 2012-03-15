@@ -1,7 +1,7 @@
 {
-    "id": "com.palm.contact.libpurple:1",
+    "id": "org.webosinternals.contact.purple:1",
     "extends": ["com.palm.contact:1"],
-    "owner": "com.palm.imlibpurple",
+    "owner": "org.webosinternals.purple.transport",
     "indexes": [
         {
             "name": "byAccountId",

@@ -1,0 +1,42 @@
+{
+	"start": true,
+	"activity": {
+		"name": "IM Service pending messages watch",
+		"description": "IM DB watch created by Configurator",
+		"type": {
+          	"foreground": true,
+          	"power": true,
+          	"powerDebounce": true,
+          	"explicit": true
+        },
+        "requirements": {
+		    "internet": true
+		},
+        "trigger": {
+			"method": "palm://com.palm.db/watch",
+			"key": "fired",
+			"params": {
+				"subscribe": true,
+				"query": {
+					"from": "org.webosinternals.immessage.purple:1",
+					"where": [
+						{
+                            "op": "=",
+                            "prop": "status",
+                            "val": "pending"
+                        },
+						{
+                            "op": "=",
+                            "prop": "folder",
+                            "val": "outbox"
+                        }
+					]
+				}
+			}
+		},
+		"callback": {
+			"method": "palm://org.webosinternals.purple.transport/sendIM",
+			"params": {}
+		}
+	}
+}

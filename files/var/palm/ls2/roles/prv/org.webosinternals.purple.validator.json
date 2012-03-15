@@ -1,0 +1,12 @@
+{
+	"role": {
+		"exeName": "/var/usr/sbin/org.webosinternals.purple.validator",
+		"type": "regular",
+		"allowedNames": ["org.webosinternals.purple.validator"]
+	},
+	"permissions": [{
+		"service":"org.webosinternals.purple.validator",
+		"inbound": ["*"],
+		"outbound": ["*"]
+	}]
+}
