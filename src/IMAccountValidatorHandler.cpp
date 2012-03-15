@@ -114,8 +114,10 @@ MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, cons
         MojString prpl = Util::get(payload, "prpl");
  
         MojObject options = Util::getProtocolOptions(prpl);
+        MojObject reply;
+        reply.put("options", options);
 
-        serviceMsg->reply(options);
+        serviceMsg->replySuccess(options);
     }
     catch (Util::MojoException const& exc)
     {
@@ -133,9 +135,7 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 	// remember the message so we can reply back in the callback
 	m_serviceMsg = serviceMsg;
 
-	bool result = true;
 	PurpleSavedStatus *status;
-	char* transportFriendlyUserName = NULL;
 
 	// log the parameters
 	privateLogMojObjectJsonString(_T("validateAccount payload: %s"), payload);
@@ -232,7 +232,7 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	MojObject params;
 
 	if (!err)
-		err = req->send(m_logoutSlot, "com.palm.imaccountvalidator", "logout", params);
+		err = req->send(m_logoutSlot, "org.webosinternals.purple.validator", "logout", params);
 	if (err) {
 		MojString error;
 		MojErrToString(err, error);

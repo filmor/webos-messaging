@@ -108,10 +108,16 @@ namespace Util
 
     PurpleAccount* createPurpleAccount(MojString username, MojObject config)
     {
-        MojString prpl = Util::get(config, "_prpl");
+        MojString prpl = Util::get(config, "prpl");
         PurplePluginProtocolInfo* info = getProtocolInfo(prpl.data());
 
-        // TODO: Strip of possible junk here!
+        // TODO: Error handling: What happens, when "preferences" is undefined?
+        MojObject prefs;
+        config.get("preferences", prefs);
+
+        // TODO: Strip off possible junk here!
+        //       The Username Split API might be useful, as soon as I have
+        //       understood it ...
         PurpleAccount* account = purple_account_new(username.data(), prpl.data());
 
         for(GList* l = info->protocol_options; l != NULL; l = l->next)
@@ -128,7 +134,7 @@ namespace Util
             case PURPLE_PREF_BOOLEAN:
                 {
                     bool value;
-                    config.get(name, value);
+                    prefs.get(name, value);
                     purple_account_set_bool(account, name, value);
                 }
                 break;
@@ -137,7 +143,7 @@ namespace Util
                 {
                     bool found;
                     int value;
-                    config.get(name, value, found);
+                    prefs.get(name, value, found);
                     purple_account_set_int(account, name, value);
                 }
                 break;
@@ -147,15 +153,17 @@ namespace Util
                 {
                     bool found;
                     MojString value;
-                    config.get(name, value, found);
+                    prefs.get(name, value, found);
                     purple_account_set_string(account, name, value.data());
                 }
                 break;
 
             default:
                 continue;
-            };
+            }
         }
+
+        return account;
     }
 }
 

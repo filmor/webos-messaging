@@ -50,7 +50,7 @@
 #include "core.h"
 #include "debug.h"
 
-const char* const IMAccountValidatorApp::ServiceName = _T("com.palm.imaccountvalidator");
+const char* const IMAccountValidatorApp::ServiceName = _T("org.webosinternals.purple.validator");
 MojLogger IMAccountValidatorApp::s_log(_T("imaccountvalidator"));
 
 /**
