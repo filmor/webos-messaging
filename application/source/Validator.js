@@ -11,12 +11,22 @@ enyo.kind({
     width: "100%",
     prefs: {},
 
-    create: function() {
+    create: function(params) {
         this.inherited(arguments);
 
-        this.$.getOptions.call({
-            params: [{ prpl: "prpl-icq", locale: "de" }],
-        });
+        if (this.params && this.params.initialTemplate)
+            this.template = this.params.initialTemplate;
+        else
+            this.template = {"loc_prpl": "prpl-icq"};
+
+        var locale = enyo.g11n && enyo.g11n.toString();
+
+        var call_params = { prpl: this.template.loc_prpl }
+
+        if (enyo.g11n.toISOString)
+            call_params["locale"] = enyo.g11n.toISOString();
+
+        this.$.getOptions.call({ params: [ call_params ] });
     },
 
     gotOptions: function(inSender, inResponse) {

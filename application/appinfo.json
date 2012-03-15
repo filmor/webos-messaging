@@ -1,0 +1,10 @@
+{
+    "id": "org.webosinternals.purple",
+    "uiRevision": 2,
+    "version": "1.0",
+    "vendor": "filmor@gmail.com",
+    "hidden": true,
+    "type": "web",
+    "main": "validator.html",
+    "title": "Messaging Helper Application"
+}
