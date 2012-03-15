@@ -1,3 +1,53 @@
+// Helper kind
+//
+// TODO: Handle enter key (blur?)
+//
+enyo.kind({
+    name: "Purple.OptionsGroup",
+    kind: "RowGroup",
+    caption: $L("Advanced Options"),
+
+    events: { onPreferenceChanged: "" },
+    published: { disabled: false },
+
+    disabledChanged: function() {
+        // TODO
+    },
+
+    filterInt: function(inSender, inEvent) {
+        var key = inEvent.keycode || inEvent.which;
+        if (key == 13) // Enter
+            console.log(inSender);
+
+        key = String.fromCharCode(key);
+        var regex = /[0-9]/;
+        if (!regex.test(key)) {
+            inEvent.preventDefault();
+        }
+    },
+
+    handleIntInput: function(inSender) {
+        var val = Number(inSender.getValue());
+
+        if (val != NaN)
+        {
+            inSender.last_value = val;
+            this.doPreferenceChanged(inSender.name, val);
+        }
+        else
+        {
+            inSender.setValue(inSender.last_value);
+        }
+    },
+
+    handleChange: function(inSender) {
+        this.doPreferenceChanged(inSender.name, inSender.getValue());
+    },
+
+    handleCheck: function(inSender) {
+        this.doPreferenceChanged(inSender.name, inSender.getChecked());
+    }
+});
 
 enyo.kind({
     name: "Purple.Options",
@@ -8,24 +58,23 @@ enyo.kind({
     },
 
     published: {
-        options: {}
+        options: {},
+        disabled: false
     },
 
-    setOptions: function(options) {
+    optionsChanged: function() {
         if (this.$._group)
             this.$._group.destroy();
 
         this.createComponent({
             name: "_group",
-            kind: "RowGroup",
-            caption: $L("Advanced Options")
+            kind: "Purple.OptionsGroup",
+            onPreferenceChanged: "doPreferenceChanged"
         })
 
-        this.$.options = options;
-        console.log(options);
-        for (var name in options)
+        for (var name in this.options)
         {
-            var node = options[name];
+            var node = this.options[name];
 
             var innerComponent = new Object();
 
@@ -37,7 +86,7 @@ enyo.kind({
                     autocorrect: false,
                     spellcheck: false,
                     value: node.default_value,
-                    onchange: "onChange"
+                    oninput: "handleChange"
                 }
             }
             else if (node.type == "int")
@@ -48,7 +97,8 @@ enyo.kind({
                     autocorrect: false,
                     spellcheck: false,
                     value: node.default_value,
-                    onchange: "onIntInput",
+                    last_value: node.default_value,
+                    oninput: "handleIntInput",
                     onkeypress: "filterInt"
                 };
             }
@@ -57,7 +107,7 @@ enyo.kind({
                 innerComponent = {
                     kind: "CheckBox",
                     checked: node.default_value,
-                    onChange: "onCheck"
+                    onChange: "handleCheck"
                 };
             }
             else if (node.type == "list")
@@ -68,21 +118,16 @@ enyo.kind({
                                 value: name_
                                 });
 
-                console.log(items);
-
                 innerComponent = {
                     kind: "ListSelector",
                     items: items,
-                    onChange: "onChange"
+                    onChange: "handleChange"
                 };
             }
             else
-            {
-                // TODO: ERROR!
-            }
+                continue;
 
             innerComponent["name"] = name;
-            console.log(innerComponent);
 
             this.$._group.createComponent({
                 layoutKind: "HFlexLayout",
@@ -94,35 +139,9 @@ enyo.kind({
         }
     },
 
-    filterInt: function(inSender, inEvent) {
-        var key = inEvent.keycode || inEvent.which;
-        if (key == 13) // Enter
-            return;
-
-        key = String.fromCharCode(key);
-        var regex = /[0-9]/;
-        console.log(key);
-        if (!regex.test(key)) {
-            inEvent.preventDefault();
-        }
+    disabledChanged: function() {
+        if (this.$._group)
+            this.$._group.setDisabled(this.disabled);
     },
 
-    onIntInput: function(inSender) {
-        var val = Number(inSender.getValue());
-        console.log(val);
-
-        if (val != NaN)
-            this.doPreferenceChanged(inSender.name, val);
-        else
-            return;
-        // TODO
-    },
-
-    onChange: function(inSender) {
-        this.doPreferenceChanged(inSender.name, inSender.getValue());
-    },
-
-    onCheck: function(inSender) {
-        this.doPreferenceChanged(inSender.name, inSender.getChecked());
-    }
 })

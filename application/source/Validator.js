@@ -1,7 +1,7 @@
 enyo.kind({
     name: "Purple.AccountService",
     kind: "PalmService",
-    service: "palm://org.webosinternals.libpurple.imaccountvalidator/"
+    service: "palm://org.webosinternals.purple.validator/"
 });
 
 enyo.kind({
@@ -9,6 +9,7 @@ enyo.kind({
     kind: "VFlexBox",
     className: "basic-back",
     width: "100%",
+    prefs: {},
 
     create: function() {
         this.inherited(arguments);
@@ -23,8 +24,51 @@ enyo.kind({
         this.render();
     },
 
-    prefChanged: function() {
+    prefChanged: function(inSender, key, value) {
+        this.prefs[key] = value;
+    },
+
+    signIn: function() {
+        this.$.username.setDisabled(true);
+        this.$.password.setDisabled(true);
+        this.$.options.setDisabled(true);
+        
+        this.$.createButton.setCaption(AccountsUtil.BUTTON_SIGNING_IN);
+        this.$.createButton.setActive(true);
+        this.$.createButton.setDisabled(true);
+
+        var params = {
+            username: this.$.username.getValue(),
+            password: this.$.password.getValue(),
+            templateId: "TEMPLATE",
+            config: { prpl: "prpl-icq", preferences: this.prefs }
+        }
+
+        // TODO: Allow updating an account
+        this.$.validateAccount.call({
+            params: [params],
+        });
+    },
+
+    validationSuccess: function(inSender, inResponse) {
         console.log(arguments);
+        console.log("Success!");
+        console.log(inResponse);
+        this.$.crossAppResult.sendResult(inResponse);
+    },
+
+    validationFail: function() {
+        console.log(arguments);
+    },
+
+    validationResponse: function() {
+        this.$.username.setDisabled(false);
+        this.$.password.setDisabled(false);
+        this.$.options.setDisabled(false);
+
+        this.$.createButton.setCaption(AccountsUtil.BUTTON_SIGN_IN);
+        this.$.createButton.setActive(false);
+        this.$.createButton.setDisabled(false);
     },
 
     components: [
@@ -44,7 +88,6 @@ enyo.kind({
             flex: 1,
             components: [
                 {
-                    kind: "Control",
                     className: "box-center",
                     components: [
                         {
@@ -59,7 +102,9 @@ enyo.kind({
                                     value: "",
                                     spellcheck: false,
                                     autoCapitalize: "lowercase",
-                                    autocorrect: false
+                                    autocorrect: false,
+                                    oninput: "validateInput",
+                                    onkeydown: "checkForEnter"
                                 }
                             ]
                         },
@@ -74,7 +119,9 @@ enyo.kind({
                                     inputType: "password",
                                     value: "",
                                     spellcheck: false,
-                                    autocorrect: false
+                                    autocorrect: false,
+                                    oninput: "validateInput",
+                                    onkeydown: "checkForEnter"
                                 }
                             ]
                         },
@@ -83,8 +130,14 @@ enyo.kind({
                             name: "options",
                             onPreferenceChanged: "prefChanged"
                         },
-                        { name: "createButton", kind: "ActivityButton",
-                          caption: $L("SIGN IN")
+                        {
+                            name: "createButton",
+                            kind: "ActivityButton",
+                            disabled: true,
+                            active: false,
+                            caption: AccountsUtil.BUTTON_SIGN_IN,
+                            className: "enyo-button-dark accounts-btn",
+                            onclick: "signIn"
                         }
                     ]
                 }
@@ -97,7 +150,36 @@ enyo.kind({
         },
         {
             name: "validateAccount",
-            kind: "Purple.AccountService"
+            kind: "Purple.AccountService",
+            onSuccess: "validationSuccess",
+            onFailure: "validationFail",
+            onResponse: "validationResponse"
+        },
+        { kind: "CrossAppResult" }
+    ],
+
+    validateInput: function() {
+        this.$.createButton.setDisabled(
+            this.$.username.isEmpty() || this.$.password.isEmpty()
+        );
+    },
+
+    checkForEnter: function(inSender, inResponse) {
+        if (inResponse.keyCode != 13) {
+            return;
         }
-    ]
+
+        if (inSender.getName() === "username") {
+            enyo.asyncMethod(this.$.password, "forceFocus");
+        }
+        else {
+            if (!this.$.createButton.getDisabled()) {
+                this.$.password.forceBlur();
+                this.signIn();
+            }
+            else {
+                enyo.asyncMethod(this.$.username, "forceFocus");
+            }
+        }
+    }
 });
