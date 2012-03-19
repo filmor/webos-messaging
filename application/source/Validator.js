@@ -15,9 +15,15 @@ enyo.kind({
         this.inherited(arguments);
 
         if (this.params && this.params.initialTemplate)
+        {
             this.template = this.params.initialTemplate;
+            this.prefs = this.template.loc_preferences || {};
+        }
         else
-            this.template = {"loc_prpl": "prpl-icq"};
+        {
+            this.template = {"templateId": "org.webosinternals.purple.icq",
+                             "loc_prpl": "prpl-icq"};
+        }
 
         var locale = enyo.g11n && enyo.g11n.toString();
 
@@ -50,8 +56,8 @@ enyo.kind({
         var params = {
             username: this.$.username.getValue(),
             password: this.$.password.getValue(),
-            templateId: "TEMPLATE",
-            config: { prpl: "prpl-icq", preferences: this.prefs }
+            templateId: this.template.templateId,
+            config: { prpl: this.template.loc_prpl, preferences: this.prefs }
         }
 
         // TODO: Allow updating an account
@@ -87,8 +93,15 @@ enyo.kind({
             className: "enyo-toolbar-light accounts-header",
             pack: "center",
             components: [
-                { kind: "Image", name: "icon" },
-                { kind: "Control", name: "title", content: "Create Account" }
+                {
+                    kind: "Image",
+                    name: "icon"
+                },
+                {
+                    kind: "Control",
+                    name: "title",
+                    content: "Create Account"
+                }
             ]
         },
         { className: "accounts-header-shadow" },
@@ -102,7 +115,7 @@ enyo.kind({
                     components: [
                         {
                             kind: "RowGroup",
-                            caption: "USERNAME FROM TEMPLATE",
+                            caption: AccountsUtil.LIST_TITLE_USERNAME,
                             className: "accounts-group",
                             components: [
                                 {
@@ -120,7 +133,7 @@ enyo.kind({
                         },
                         {
                             kind: "RowGroup",
-                            caption: $L("PASSWORD"),
+                            caption: AccountsUtil.LIST_TITLE_PASSWORD,
                             className: "accounts-group",
                             components: [
                                 {
