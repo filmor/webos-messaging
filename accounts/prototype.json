@@ -1,41 +1,62 @@
 {
-    "templateId": "org.webosinternals.purple.$name",
-    "icon": {
-        "loc_32x32": "images/$name-32x32.png",
-        "loc_48x48": "images/$name-48x48.png"
-    },
-    "validator": {
-        "customUI": {
-            "appId": "org.webosinternals.app.purple",
-            "name": "validator.html"
+    "basename": "$name",
+    "servicename": "type_$name",
+    "iconname": "$basename",
+    "prefix": "org.webosinternals",
+    "templateid": "$prefix.purple.$basename",
+    "validator": "$prefix.purple.validator",
+    "transport": "$prefix.purple.transport",
+
+    "@icons": {
+        "icon32": {
+            "path": "$pidgin_path/pidgin/pixmaps/protocols/22/$iconname.png",
+            "name": "images/$iconname-32x32.png"
         },
-        "address": "palm://org.webosinternals.purple.validator/checkCredentials"
-    },
-    "readPermissions": [
-        "org.webosinternals.purple.im",
-        "com.palm.app.messaging",
-        "com.palm.app.contacts",
-        "com.palm.service.contacts",
-        "com.palm.service.contacts.linker"
-    ],
-    "writePermissions": [
-        "com.palm.app.contacts",
-        "com.palm.app.messaging"
-    ],
-    "capabilityProviders": [
-        {
-            "capability": "MESSAGING",
-            "capabilitySubtype": "IM",
-            "id": "org.webosinternals.purple.$name.$name",
-            "icon": {"splitter": "images/$name-32x32.png"},
-            "implementation": "palm://org.webosinternals.purple.im/",
-            "onEnabled": "palm://org.webosinternals.purple.im/onEnabled",
-            "readOnlyData": true,
-            "serviceName":"type_$name",
-            "dbkinds": {
-                "imcommand": "org.webosinternals.purple.imcommand:1",
-                "immessage": "org.webosinternals.purple.immessage:1"
-            }
+        "icon48": {
+            "path": "$pidgin_path/pidgin/pixmaps/protocols/48/$iconname.png",
+            "name": "images/$iconname-48x48.png"
         }
-    ]
+    },
+
+    "@template": {
+        "templateId": "$templateid",
+        "icon": {
+            "loc_32x32": "$icon32",
+            "loc_48x48": "$icon48"
+        },
+        "validator": {
+            "customUI": {
+                "appId": "$prefix.app.purple",
+                "name": "validator.html"
+            },
+            "address": "palm://$validator/checkCredentials"
+        },
+        "readPermissions": [
+            "$transport",
+            "com.palm.app.messaging",
+            "com.palm.app.contacts",
+            "com.palm.service.contacts",
+            "com.palm.service.contacts.linker"
+        ],
+        "writePermissions": [
+            "com.palm.app.contacts",
+            "com.palm.app.messaging"
+        ],
+        "capabilityProviders": [
+            {
+                "capability": "MESSAGING",
+                "capabilitySubtype": "IM",
+                "id": "$templateid.$name",
+                "icon": {"splitter": "$icon32"},
+                "implementation": "palm://$transport/",
+                "onEnabled": "palm://$transport/onEnabled",
+                "readOnlyData": true,
+                "serviceName":"$servicename",
+                "dbkinds": {
+                    "imcommand": "$prefix.imcommand.purple:1",
+                    "immessage": "$prefix.immessage.purple:1"
+                }
+            }
+        ]
+    }
 }

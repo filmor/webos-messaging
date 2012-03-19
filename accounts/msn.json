@@ -1,0 +1,9 @@
+{
+    "name": "msn",
+    "@template": {
+        "loc_name": "MSN",
+        "loc_usernameLabel": "Windows Live ID",
+        "loc_explainUsernameLabel": "user@hotmail.com",
+        "loc_prpl": "prpl-msn"
+    }
+}

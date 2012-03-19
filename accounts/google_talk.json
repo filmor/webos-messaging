@@ -1,0 +1,23 @@
+{
+    "name": "talk",
+    "basename": "google",
+    "servicename": "type_gtalk",
+    "iconname": "google-talk",
+
+    "@icons": {
+        "icon48": {
+            "path": "$pidgin_path/pidgin/pixmaps/protocols/48/jabber.png"
+        }
+    },
+
+    "@include": [
+        "jabber.json"
+    ],
+
+    "@template": {
+        "loc_preferences": {
+            "server": "talk.google.com",
+            "port": 5222
+        }
+    }
+}

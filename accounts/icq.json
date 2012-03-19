@@ -1,6 +1,6 @@
 {
     "name": "icq",
-    "@override": {
+    "@template": {
         "loc_name": "ICQ",
         "loc_usernameLabel": "ICQ Number",
         "loc_explainUsernameLabel": "12345678",

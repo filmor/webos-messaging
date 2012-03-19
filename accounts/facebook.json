@@ -1,0 +1,14 @@
+{
+    "name": "chat",
+    "basename": "facebook",
+    "servicename": "type_facebook",
+    
+    "@include": ["jabber.json"],
+
+    "@template": {
+        "loc_preferences": {
+            "server": "chat.facebook.com",
+            "port": 5222
+        }
+    }
+}
