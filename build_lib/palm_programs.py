@@ -29,17 +29,24 @@ def build(bld):
 
     bld.objects(target="palm_common",
                 source=common,
-                use="GLIB BASE PALM_BUILD purple")
+                use="GLIB PALM_BUILD purple")
 
-    bld.program(target=join("bin", "imaccountvalidator"),
+    validator = bld.env.PALM_PREFIX + "purple.validator"
+    transport = bld.env.PALM_PREFIX + "purple.transport"
+
+    install_path = "${PREFIX}/files/var/usr/sbin"
+
+    bld.program(target=validator,
                 source=bld.path.ant_glob(av_glob),
-                use="GLIB BASE PALM_BUILD purple palm_common",
+                use="GLIB PALM_BUILD purple palm_common",
+                install_path=install_path
                )
 
-    bld.program(target=join("bin", "imlibpurpletransport"),
+    bld.program(target=transport,
                 source=bld.path.ant_glob(pt_glob,
                                          excl=_flatten([av_glob,common])
                                         ),
-                use="GLIB BASE PALM_BUILD purple palm_common"
+                use="GLIB PALM_BUILD purple palm_common",
+                install_path=install_path
                )
 

@@ -1,11 +1,11 @@
-from os.path import join, basename, splitext
-from os import chdir
-from glob import glob
+from os import path
 
 VERSION='0.1'
 APPNAME='messaging-plugins'
 
 TOOLDIR='build_lib'
+
+PALM_PREFIX='org.webosinternals.'
 
 def options(opt):
     opt.load('compiler_c compiler_cxx')
@@ -15,20 +15,22 @@ def options(opt):
 
 def configure(conf):
     conf.env.INCLUDES = []
-    # TODO: Werror for my own code
-    conf.env.CFLAGS = ["-ggdb", "-Wall"]
-    conf.env.CXXFLAGS = ["-ggdb", "-Wall"]
-    conf.env.ARCH = "-march=armv7-a"
-    conf.env.append_value('LINKFLAGS_BASE', [])
-    conf.env.append_value("LIBPATH_BASE", [join("..", TOOLDIR, "lib")])
+    conf.env.PALM_PREFIX = PALM_PREFIX
 
-    conf.env.append_value("INCLUDES_GLIB", [join("..", TOOLDIR, "include")])
+    # TODO: Werror for my own code
+    # TODO: Remove debugging for release
+    conf.env.append_value("CFLAGS", ["-ggdb", "-Wall"])
+    conf.env.append_value("CXXFLAGS", ["-ggdb", "-Wall"])
+    conf.env.append_value("ARCH", "-march=armv7-a")
+    conf.env.append_value("LIBPATH", [path.join("..", TOOLDIR, "lib")])
+
+    conf.env.append_value("INCLUDES_GLIB", [path.join("..", TOOLDIR, "include")])
     conf.env.append_value("LIB_GLIB", ["glib-2.0", "gobject-2.0", "gmodule-2.0"])
-    conf.env.append_value("LIBPATH_GLIB", [join("..", TOOLDIR, "lib")])
+    conf.env.append_value("LIBPATH_GLIB", [path.join("..", TOOLDIR, "lib")])
 
     # TODO: Parse plugin files to find static name, s.t. autoaccept works again
     plugins = [
-#        "autoaccept",
+        "Autoaccept",
         "idle",
         "joinpart",
         "log_reader",

@@ -119,5 +119,4 @@ def create_account(name, out, pidgin_path, proto="prototype.json"):
                   substitutions={"pidgin_path": pidgin_path})
     ctx.write(out, indent=4, sort_keys=True)
 
-if __name__ == '__main__':
-    create_account(*(sys.argv[1:]))
+

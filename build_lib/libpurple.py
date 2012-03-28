@@ -2,21 +2,20 @@ from os.path import join
 from glob import glob
 from util import ant_glob
 from itertools import chain
+from re import match
 
 from waflib.Configure import conf
 
-# TODO: Get version from path
-VERSION="2.10.0"
-
-# TODO: Set these informations in ctx.env!!
-def get_path():
+def get_path_and_version():
     try:
-        return glob("deps/pidgin-*/libpurple")[-1]
+        path = glob("deps/pidgin-*/libpurple")[-1]
+        version = match("deps/pidgin-(?P<version>[^/]*)/libpurple", path).groups()[0]
+        return (path, version)
     except IndexError:
         raise RuntimeError("Couldn't find libpurple sources")
 
-SUPPORTED_PROTOCOLS = set(["jabber", "icq", "aim", "jabber", "msn"])
-# TODO Same for plugins, maybe use glob?
+def get_path():
+    return get_path_and_version()[0]
 
 def build_protocol(ctx, name, path=None, exclude=[], use=[]):
     root_path = join(ctx.env.PURPLE_PATH, "protocols", path if path else name)
@@ -30,8 +29,9 @@ def build_protocol(ctx, name, path=None, exclude=[], use=[]):
 def configure(conf):
     conf.load('compiler_c')
 
-    path = get_path()
+    path, version = get_path_and_version()
     conf.env.PURPLE_PATH = path
+    conf.env.PURPLE_VERSION = version
 
     if conf.env.PURPLE_SSL:
         # Order matters: It seems like ssl-gnutls has to be loaded before
@@ -81,8 +81,8 @@ def configure(conf):
     conf.define("HAVE_STRFTIME_Z_FORMAT", 1)
     conf.define("HAVE_FILENO", 1)
     conf.define("HAVE_STRUCT_SOCKADDR_SA_LEN", 1)
-    conf.define("VERSION", VERSION)
-    conf.define("DISPLAY_VERSION", VERSION)
+    conf.define("VERSION", conf.env.PURPLE_VERSION)
+    conf.define("DISPLAY_VERSION", conf.env.PURPLE_VERSION)
     conf.define("DATADIR", ".")
     conf.define("SYSCONFDIR", ".")
     conf.define("PACKAGE_NAME", "libpurple")
@@ -138,8 +138,9 @@ def build(bld):
 
     a = bld.objects(target="plugins",
                 source=[join(bld.env.PURPLE_PATH, "plugins",
-                            (join("ssl", i) if i.startswith("ssl") else i) +
-                            ".c"
+                            (join("ssl", i) if i.startswith("ssl") else
+                                i.lower())
+                            + ".c"
                             )
                         for i in bld.env.PURPLE_PLUGINS
                        ],
