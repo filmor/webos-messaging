@@ -1,7 +1,7 @@
 {
-    "id": "org.webosinternals.purple",
+    "id": "org.webosinternals.app.purple",
     "uiRevision": 2,
-    "version": "1.0",
+    "version": "1.0.0",
     "vendor": "filmor@gmail.com",
     "hidden": true,
     "type": "web",
