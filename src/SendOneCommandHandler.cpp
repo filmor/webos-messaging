@@ -721,12 +721,8 @@ MojErr SendOneCommandHandler::addBuddyResult(MojObject& result, MojErr saveErr)
 	bool validEmail = true;
 	emailAddr.assign(m_buddyName.data());
 	// for AIM, need to add back the "@aol.com" to the email
-	if (MojInvalidIndex == m_buddyName.find('@')) {
-		if (0 == m_serviceName.compare(SERVICENAME_AIM))
-			emailAddr.append("@aol.com");
-		else
-			validEmail = false;
-	}
+    // TODO: See SendOneMessageHandler.cpp
+    validEmail = false;
 
 	if (validEmail) {
 		MojObject newEmailArray, newEmailObj;

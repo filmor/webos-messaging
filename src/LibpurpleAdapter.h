@@ -28,7 +28,6 @@
 #define LIBPURPLEADAPTER_H_
 
 #include <purple.h>
-//#include <lunaservice.h> //TODO remove this once LS is removed from the adapter
 #include <syslog.h>
 #include "PalmImCommon.h"
 #include "core/MojService.h"

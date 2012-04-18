@@ -300,106 +300,6 @@ guint adapterIOAdd(gint fd, PurpleInputCondition purpleCondition, PurpleInputFun
  * Helper methods 
  */
 
-/*
- * This method handles special cases where the username passed by the mojo side does not satisfy a particular prpl's requirement
- * (e.g. for logging into AIM, the mojo service uses "palmpre@aol.com", yet the aim prpl expects "palmpre"; same scenario with yahoo)
- * Free the returned string when you're done with it 
- */
-static char* getPrplFriendlyUsername(const char* serviceName, const char* username)
-{
-	if (!username || !serviceName)
-	{
-		return strdup("");
-	}
-
-	char* transportFriendlyUsername = strdup(username);
-	if (strcmp(serviceName, SERVICENAME_AIM) == 0)
-	{
-		// Need to strip off @aol.com, but not @aol.com.mx
-		const char* extension = strstr(username, "@aol.com");
-		if (extension != NULL && strstr(extension, "aol.com.") == NULL)
-		{
-			strtok(transportFriendlyUsername, "@");
-		}
-	}
-	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0)
-	{
-		if (strstr(username, "@yahoo.com") != NULL)
-		{
-			strtok(transportFriendlyUsername, "@");
-		}
-	}
-	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0)
-	{
-		if (strstr(username, "@icq.com") != NULL)
-		{
-			strtok(transportFriendlyUsername, "@");
-		}
-	}
-	MojLogInfo(IMServiceApp::s_log, _T("getPrplFriendlyUsername: username: %s, transportFriendlyUsername: %s"), username, transportFriendlyUsername);
-	return transportFriendlyUsername;
-}
-
-/*
- * The messaging service expects the username to be in the username@domain.com format, whereas the AIM prpl uses the username only
- * Free the returned string when you're done with it 
- */
-static char* getMojoFriendlyUsername(const char* username, const char* serviceName)
-{
-	if (!username || !serviceName)
-	{
-		return strdup("");
-	}
-	GString* mojoFriendlyUsername = g_string_new(username);
-	if (strcmp(serviceName, SERVICENAME_AIM) == 0 && strchr(username, '@') == NULL)
-	{
-		g_string_append(mojoFriendlyUsername, "@aol.com");
-	}
-	else if (strcmp(serviceName, SERVICENAME_YAHOO) == 0 && strchr(username, '@') == NULL)
-	{
-		g_string_append(mojoFriendlyUsername, "@yahoo.com");
-	}
-	else if (strcmp(serviceName, SERVICENAME_ICQ) == 0 && strchr(username, '@') == NULL)
-	{
-		g_string_append(mojoFriendlyUsername, "@icq.com");
-	}
-	else if (strcmp(serviceName, SERVICENAME_GTALK) == 0)
-	{
-		char* resource = (char*)memchr(username, '/', strlen(username));
-		if (resource != NULL)
-		{
-			int charsToKeep = resource - username;
-			g_string_erase(mojoFriendlyUsername, charsToKeep, -1);
-		}
-	}
-	char* mojoFriendlyUsernameToReturn = strdup(mojoFriendlyUsername->str);
-	g_string_free(mojoFriendlyUsername, TRUE);
-	return mojoFriendlyUsernameToReturn;
-}
-
-static char* stripResourceFromGtalkUsername(const char* username, const char* serviceName)
-{
-	if (!username)
-	{
-		return strdup("");
-	}
-	if (strcmp(serviceName, SERVICENAME_GTALK) != 0)
-	{
-		return strdup(username);
-	}
-
-	GString* mojoFriendlyUsername = g_string_new(username);
-	char* resource = (char*)memchr(username, '/', strlen(username));
-	if (resource != NULL)
-	{
-		int charsToKeep = resource - username;
-		g_string_erase(mojoFriendlyUsername, charsToKeep, -1);
-	}
-	char* mojoFriendlyUsernameToReturn = strdup(mojoFriendlyUsername->str);
-	g_string_free(mojoFriendlyUsername, TRUE);
-	return mojoFriendlyUsernameToReturn;
-}
-
 static const char* getMojoFriendlyErrorCode(PurpleConnectionError type)
 {
 	const char* mojoFriendlyErrorCode;
@@ -425,34 +325,6 @@ static const char* getMojoFriendlyErrorCode(PurpleConnectionError type)
 		mojoFriendlyErrorCode = ERROR_GENERIC_ERROR;
 	}
 	return mojoFriendlyErrorCode;
-}
-
-/*
- * Given the prpl-specific protocol_id, it will return mojo-friendly serviceName (e.g. given "prpl-aim", it will return "type_aim")
- * Free the returned string when you're done with it 
- */
-static char* getServiceNameFromPrplProtocolId(char* prplProtocolId)
-{
-	if (!prplProtocolId)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getServiceNameFromPrplProtocolId called with empty protocolId"));
-		return strdup("type_default");
-	}
-	char* stringChopper = prplProtocolId;
-	stringChopper += strlen("prpl-");
-	GString* serviceName = g_string_new(stringChopper);
-
-	if (strcmp(serviceName->str, "jabber") == 0)
-	{
-		// Special case for gtalk where the mojo serviceName is "type_gtalk" and the prpl protocol_id is "jabber-purple"
-		g_string_free(serviceName, TRUE);
-		serviceName = g_string_new("gtalk");
-	}
-	char* serviceNameToReturn = NULL;
-	// asprintf allocates appropriate-sized buffer
-	asprintf(&serviceNameToReturn, "type_%s", serviceName->str);
-	g_string_free(serviceName, TRUE);
-	return serviceNameToReturn;
 }
 
 static char* getAccountKey(const char* username, const char* serviceName)
@@ -499,9 +371,9 @@ static char* getAccountKeyFromPurpleAccount(PurpleAccount* account)
 		MojLogError(IMServiceApp::s_log, _T("getAccountKeyFromPurpleAccount called with empty account"));
 		return strdup("");
 	}
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	const char* serviceName = (const char*)account->ui_data;
 	char* username = getMojoFriendlyUsername(account->username, serviceName);
-	char* accountKey = getAccountKey(username, serviceName);
+	char* accountKey = getAccountKey(username, account->protocol_id);
 
 	free(serviceName);
 	free(username);
@@ -1517,7 +1389,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	 */
 
 	// TODO this currently ignores authentication token, but should check it as well when support for auth token is added
-	if (params->password == NULL || params->password[0] == 0)
+	if (password == "")
 	{
 		MojLogError(IMServiceApp::s_log, _T("Error: null or empty password trying to log in to servicename %s"), params->serviceName);
 	    return INVALID_CREDENTIALS;
@@ -1527,10 +1399,10 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/* save the local IP address that we need to use */
 		// TODO - move this to #ifdef. If you are running imlibpurpletransport on desktop, but tethered to device, params->localIpAddress needs to be set to
 		// NULL otherwise login will fail...
-		if (params->localIpAddress != NULL && params->localIpAddress[0] != 0)
+		if (localIpAddress != "")
 		{
 			purple_prefs_remove("/purple/network/preferred_local_ip_address");
-			purple_prefs_add_string("/purple/network/preferred_local_ip_address", params->localIpAddress);
+			purple_prefs_add_string("/purple/network/preferred_local_ip_address", localIpAddress);
 		}
 		else
 		{
@@ -2315,7 +2187,7 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 		for (accountIterator = accountToLogoutList; accountIterator != NULL; accountIterator = accountIterator->next)
 		{
 			account = (PurpleAccount*) accountIterator->data;
-			char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+			char* serviceName = account->protocol_id;
 			char* username = getMojoFriendlyUsername(account->username, serviceName);
 			char* accountKey = getAccountKey(username, serviceName);
 

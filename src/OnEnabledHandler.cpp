@@ -128,7 +128,11 @@ MojErr  OnEnabledHandler::getAccountInfoResult(MojObject& payload, MojErr result
 		return err;
 	}
 
-	getServiceNameFromCapabilityId(m_serviceName);
+    MojObject capabilities;
+    MojObject messagingObject;
+    result.get("capabilityProviders", capabilities);
+    getMessagingCapabilityObject(capabilities, messagingObject);
+    err = messagingObject.getRequired("serviceName", m_serviceName);
 	if (m_serviceName.empty()) {
 		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler::getAccountInfoResult serviceName empty"));
 		return err;
@@ -141,34 +145,6 @@ MojErr  OnEnabledHandler::getAccountInfoResult(MojObject& payload, MojErr result
 	}
 
 	return err;
-}
-
-MojErr OnEnabledHandler::getDefaultServiceName(const MojObject& accountResult, MojString& serviceName)
-{
-	MojString templateId;
-	MojErr err = accountResult.getRequired("templateId", templateId);
-	if (err != MojErrNone) {
-		MojLogError(IMServiceApp::s_log, _T("OnEnabledHandler templateId empty or error %d"), err);
-	} else {
-		if (templateId == "com.palm.google")
-			serviceName.assign(SERVICENAME_GTALK);
-		else if (templateId == "com.palm.aol")
-			serviceName.assign(SERVICENAME_AIM);
-		else if (templateId == "com.palm.icq")
-			serviceName.assign(SERVICENAME_ICQ);
-		else
-			err = MojErrNotImpl;
-	}
-	return err;
-}
-
-void OnEnabledHandler::getServiceNameFromCapabilityId(MojString& serviceName) 
-{
-	if (m_capabilityProviderId == CAPABILITY_GTALK)
-		serviceName.assign(SERVICENAME_GTALK);	
-	else if (m_capabilityProviderId == CAPABILITY_AIM)
-		serviceName.assign(SERVICENAME_AIM);
-
 }
 
 /*
@@ -394,6 +370,7 @@ MojErr OnEnabledHandler::findImLoginStateResult(MojObject& payload, MojErr err)
 		imLoginState.put(_T("accountId"), m_accountId);
 		imLoginState.put(_T("serviceName"), m_serviceName);
 		imLoginState.put(_T("username"), m_username);
+        imLoginState.put(_T("capabilityId"), m_capabilityProviderId);
 		imLoginState.putString(_T("state"), LOGIN_STATE_OFFLINE);
 		imLoginState.putInt(_T("availability"), PalmAvailability::ONLINE); //default to online so we automatically login at first
 		MojErr err = m_dbClient.put(m_addImLoginStateSlot, imLoginState);

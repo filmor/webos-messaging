@@ -26,19 +26,12 @@ namespace Util
     };
 
     MojObject getProtocolOptions(MojString prpl);
+    // Expects Mojo Username (i.e. user@example.com)
     PurpleAccount* createPurpleAccount(MojString username, MojObject config);
 
-/*    namespace
-    {
-        Protocol protocols[] =
-        {
-            {"com.palm.aol", "prpl-aim", "type_aim"},
-            {"org.webosinternals.icq", "prpl-icq", "type_icq"},
-            {"org.webosinternals.facebook", "prpl-jabber", "type_jabber"},
-            {"com.palm.google.talk", "prpl-jabber", "type_gtalk"},
-            {"org.webosinternals.msn", "prpl-msn", "type_msn"}
-        };
-    }*/
+    // If there is 
+    MojString getMojoUsername(MojString username, MojObject config);
+    const char* getPurpleUsername(MojString username, MojObject config);
 
 }
 

@@ -431,16 +431,11 @@ bool ContactConsolidationHelper::formatForDB(const MojString& accountId, const M
 
 			// need to add email address too for contacts linker
 			//    email:[{value:<>}]
+            // TODO: This has to be done properly. We need to get the email
+            //       address and other contact data stored on the server
+            //       from libpurple.
 			MojString emailAddr;
-			bool validEmail = true;
-			emailAddr.assign(username);
-			// for AIM, need to add back the "@aol.com" to the email
-			if (MojInvalidIndex == username.find('@')) {
-				if (0 == serviceName.compare(SERVICENAME_AIM))
-					emailAddr.append("@aol.com");
-				else
-					validEmail = false;
-			}
+			bool validEmail = false;
 
 			if (validEmail) {
 				MojObject newEmailArray, newEmailObj;
@@ -458,6 +453,8 @@ bool ContactConsolidationHelper::formatForDB(const MojString& accountId, const M
 				MojObject newPhotosArray, newPhotoObj;
 				newPhotoObj.put("localPath", avatar);
 				newPhotoObj.put("value", avatar);
+                // TODO: Check if the image is really a square (it might not be
+                // for facebook, MSN etc.
 				newPhotoObj.putString("type", "type_square"); // AIM and GTalk generally send small, square-ish images
 				newPhotosArray.push(newPhotoObj);
 				contact.put("photos", newPhotosArray);
