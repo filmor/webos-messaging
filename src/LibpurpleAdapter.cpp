@@ -119,6 +119,12 @@ typedef struct _auth_and_add
 	PurpleAccount *account;
 } AuthRequest;
 
+struct AccountMetaData
+{
+	const char* account_key;
+	const char* servicename;
+};
+
 static void incoming_message_cb(PurpleConversation *conv, const char *who, const char *alias, const char *message,	PurpleMessageFlags flags, time_t mtime);
 static void adapterUIInit(void);
 static GHashTable* getClientInfo(void);
@@ -327,17 +333,9 @@ static const char* getMojoFriendlyErrorCode(PurpleConnectionError type)
 	return mojoFriendlyErrorCode;
 }
 
-static char* getAccountKey(const char* username, const char* serviceName)
+static std::string getAccountKey(std::string const& username, std::string const& serviceName)
 {
-	if (!username || !serviceName)
-	{
-		MojLogError(IMServiceApp::s_log, _T("getAccountKey called with empty username or servicename. serviceName=\"%s\""), serviceName);
-		return strdup("");
-	}
-	char *accountKey = NULL;
-	// asprintf allocates appropriate-sized buffer
-	asprintf(&accountKey, "%s_%s", username, serviceName);
-	return accountKey;
+	return username + "_" + serviceName;
 }
 
 static char* getAuthRequestKey(const char* username, const char* serviceName, const char* remoteUsername)
@@ -364,21 +362,22 @@ static char* getAuthRequestKey(const char* username, const char* serviceName, co
 	return authRequestKey;
 }
 
-static char* getAccountKeyFromPurpleAccount(PurpleAccount* account)
+static const char* getAccountKeyFromPurpleAccount(PurpleAccount* account)
 {
-	if (!account)
+	if (!account || !account->ui_data)
 	{
 		MojLogError(IMServiceApp::s_log, _T("getAccountKeyFromPurpleAccount called with empty account"));
-		return strdup("");
+		return "";
 	}
-	const char* serviceName = (const char*)account->ui_data;
-	char* username = getMojoFriendlyUsername(account->username, serviceName);
-	char* accountKey = getAccountKey(username, account->protocol_id);
+	return ((AccountMetaData*)account->ui_data)->account_key;
+}
 
-	free(serviceName);
-	free(username);
+static const char* getServiceNameFromPurpleAccount(PurpleAccount* account)
+{
+	if (!account || !account->ui_data)
+		return "";
 
-	return accountKey;
+	return ((AccountMetaData*)account->ui_data)->servicename;
 }
 
 /**
@@ -618,15 +617,14 @@ static void buddy_signed_on_off_cb(PurpleBuddy* buddy, gpointer data)
 	LSErrorInit(&lserror);
 
 	PurpleAccount* account = purple_buddy_get_account(buddy);
-	char* accountKey = getAccountKeyFromPurpleAccount(account);
-	const char* accountId = (const char*)g_hash_table_lookup(s_AccountIdsData, accountKey);
+	std::string const& accountKey = getAccountKeyFromPurpleAccount(account);
+	const char* accountId = (const char*)g_hash_table_lookup(s_AccountIdsData, accountKey.c_str());
 	if (NULL == accountId) {
 		MojLogError(IMServiceApp::s_log, _T("buddy_signed_on_off_cb: accountId not found in table."));
-		free(accountKey);
 		return;
 	}
 
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	std::string const& serviceName = getServiceNameFromPurpleAccount(account);
 	PurpleStatus* activeStatus = purple_presence_get_active_status(purple_buddy_get_presence(buddy));
 	/*
 	 * Getting the new availability
@@ -662,15 +660,12 @@ static void buddy_signed_on_off_cb(PurpleBuddy* buddy, gpointer data)
 
 	// call into the imlibpurpletransport
 	// buddy->name is stored in the imbuddyStatus DB kind in the libpurple format - ie. for AIM without the "@aol.com" so that is how we need to search for it
-	s_imServiceHandler->updateBuddyStatus(accountId, serviceName, buddy->name, newAvailabilityValue,customMessage, groupName, buddyAvatarLocation);
+	s_imServiceHandler->updateBuddyStatus(accountId, serviceName.c_str(), buddy->name, newAvailabilityValue, customMessage, groupName, buddyAvatarLocation);
 
 	g_message(
 			"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
 			__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->alias, groupName);
 	
-	free(serviceName);
-	free(accountKey);
-
 	if (buddyAvatarLocation)
 	{
 		g_free(buddyAvatarLocation);
@@ -699,14 +694,13 @@ static void buddy_status_changed_cb(PurpleBuddy* buddy, PurpleStatus* old_status
 	LSErrorInit(&lserror);
 
 	PurpleAccount* account = purple_buddy_get_account(buddy);
-	char* accountKey = getAccountKeyFromPurpleAccount(account);
-	const char* accountId = (const char*)g_hash_table_lookup(s_AccountIdsData, accountKey);
+	std::string const& accountKey = getAccountKeyFromPurpleAccount(account);
+	const char* accountId = (const char*)g_hash_table_lookup(s_AccountIdsData, accountKey.c_str());
 	if (NULL == accountId) {
 		MojLogError(IMServiceApp::s_log, _T("buddy_status_changed_cb: accountId not found in table."));
-		free(accountKey);
 		return;
 	}
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
+	std::string const& serviceName = getServiceNameFromPurpleAccount(account);
 
 	PurpleBuddyIcon* icon = purple_buddy_get_icon(buddy);
 	char* buddyAvatarLocation = NULL;	
@@ -724,18 +718,12 @@ static void buddy_status_changed_cb(PurpleBuddy* buddy, PurpleStatus* old_status
 
 	// call into the imlibpurpletransport
 	// buddy->name is stored in the imbuddyStatus DB kind in the libpurple format - ie. for AIM without the "@aol.com" so that is how we need to search for it
-	s_imServiceHandler->updateBuddyStatus(accountId, serviceName, buddy->name, newAvailabilityValue, customMessage, groupName, buddyAvatarLocation);
+	s_imServiceHandler->updateBuddyStatus(accountId, serviceName.c_str(), buddy->name, newAvailabilityValue, customMessage, groupName, buddyAvatarLocation);
 
 	g_message(
 			"%s says: %s's presence: availability: '%i', custom message: '%s', avatar location: '%s', display name: '%s', group name: '%s'",
 			__FUNCTION__, buddy->name, newAvailabilityValue, customMessage, buddyAvatarLocation, buddy->alias, groupName);
 	
-	if (serviceName)
-	{
-		free(serviceName);
-	}
-	free(accountKey);
-
 	if (buddyAvatarLocation)
 	{
 		g_free(buddyAvatarLocation);
@@ -791,40 +779,37 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 	PurpleAccount* loggedInAccount = purple_connection_get_account(gc);
 	g_return_if_fail(loggedInAccount != NULL);
 
-	char* serviceName = getServiceNameFromPrplProtocolId(loggedInAccount->protocol_id);
-	char* username = getMojoFriendlyUsername(loggedInAccount->username, serviceName);
-	char* accountKey = getAccountKey(username, serviceName);
+	std::string const& serviceName = getServiceNameFromPurpleAccount(loggedInAccount);
+	std::string const& username = Util::getMojoUsername(loggedInAccount->username, loggedInAccount->protocol_id);
+	std::string const& accountKey = getAccountKeyFromPurpleAccount(loggedInAccount);
 
-	if (g_hash_table_lookup(s_onlineAccountData, accountKey) != NULL)
+	if (g_hash_table_lookup(s_onlineAccountData, accountKey.c_str()) != NULL)
 	{
 		// we were online. why are we getting notified that we're connected again? we were never disconnected.
 		// mark the account online just to be sure?
 		MojLogError(IMServiceApp::s_log, _T("account_logged_in_cb: account already online. why are we getting notified?"));
-		free(serviceName);
-		free(username);
-		free(accountKey);
 		return;
 	}
 
 	/*
 	 * cancel the connect timeout for this account
 	 */
-	guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey);
+	guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey.c_str());
 
 	purple_timeout_remove(timerHandle);
-	g_hash_table_remove(s_accountLoginTimers, accountKey);
+	g_hash_table_remove(s_accountLoginTimers, accountKey.c_str());
 
 	// Don't free accountKey because s_onlineAccountData has a reference to it.
-	MojLogInfo(IMServiceApp::s_log, _T("account_logged_in_cb: inserting account into onlineAccountData hash table. accountKey %s"), accountKey);
-	g_hash_table_insert(s_onlineAccountData, accountKey, loggedInAccount);
-	g_hash_table_remove(s_pendingAccountData, accountKey);
+	MojLogInfo(IMServiceApp::s_log, _T("account_logged_in_cb: inserting account into onlineAccountData hash table. accountKey %s"), accountKey.c_str());
+	g_hash_table_insert(s_onlineAccountData, (void*)accountKey.c_str(), loggedInAccount);
+	g_hash_table_remove(s_pendingAccountData, accountKey.c_str());
 
 	MojLogInfo(IMServiceApp::s_log, _T("Account connected..."));
 
 	// reply with login success
 	if (loginState)
 	{
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_SUCCESS, false, ERROR_NO_ERROR, false);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_SUCCESS, false, ERROR_NO_ERROR, false);
 	}
 	else
 	{
@@ -853,9 +838,6 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 //						GINT_TO_POINTER(FALSE));
 		s_registeredForPresenceUpdateSignals = TRUE;
 	}
-	
-	free(serviceName);
-	free(username);
 }
 
 static void account_signed_off_cb(PurpleConnection* gc, gpointer loginState)
@@ -863,51 +845,46 @@ static void account_signed_off_cb(PurpleConnection* gc, gpointer loginState)
 	PurpleAccount* account = purple_connection_get_account(gc);
 	g_return_if_fail(account != NULL);
 
-	char* accountKey = getAccountKeyFromPurpleAccount(account);
-	if (g_hash_table_lookup(s_onlineAccountData, accountKey) != NULL)
+	std::string const& accountKey = getAccountKeyFromPurpleAccount(account);
+	if (g_hash_table_lookup(s_onlineAccountData, accountKey.c_str()) != NULL)
 	{
-		MojLogInfo(IMServiceApp::s_log, _T("account_signed_off_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey);
-		g_hash_table_remove(s_onlineAccountData, accountKey);
+		MojLogInfo(IMServiceApp::s_log, _T("account_signed_off_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey.c_str());
+		g_hash_table_remove(s_onlineAccountData, accountKey.c_str());
 	}
-	else if (g_hash_table_lookup(s_pendingAccountData, accountKey) != NULL)
+	else if (g_hash_table_lookup(s_pendingAccountData, accountKey.c_str()) != NULL)
 	{
-		g_hash_table_remove(s_pendingAccountData, accountKey);
+		g_hash_table_remove(s_pendingAccountData, accountKey.c_str());
 	}
 	else
 	{
 		// Already signed off this account (or never signed in) so just return
-		free(accountKey);
 		return;
 	}
 
-	g_hash_table_remove(s_ipAddressesBoundTo, accountKey);
+	g_hash_table_remove(s_ipAddressesBoundTo, accountKey.c_str());
 	//g_hash_table_remove(connectionTypeData, accountKey);
 
 	MojLogInfo(IMServiceApp::s_log, _T("Account disconnected..."));
 
-	if (g_hash_table_lookup(s_offlineAccountData, accountKey) == NULL)
+	if (g_hash_table_lookup(s_offlineAccountData, accountKey.c_str()) == NULL)
 	{
 		/*
 		 * Keep the PurpleAccount struct to reuse in future logins
 		 */
-		g_hash_table_insert(s_offlineAccountData, accountKey, account);
+		g_hash_table_insert(s_offlineAccountData, (void*)accountKey.c_str(), account);
 	}
 	
 	// reply with signed off
 	if (loginState)
 	{
-		char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
-		char* myMojoFriendlyUsername = getMojoFriendlyUsername(account->username, serviceName);
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName, myMojoFriendlyUsername, LoginCallbackInterface::LOGIN_SIGNED_OFF, false, ERROR_NO_ERROR, true);
-		free(serviceName);
-		free(myMojoFriendlyUsername);
+		std::string const& serviceName = getServiceNameFromPurpleAccount(account);
+		std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_SIGNED_OFF, false, ERROR_NO_ERROR, true);
 	}
 	else
 	{
 		MojLogError(IMServiceApp::s_log, _T("ERROR: account_logged_in_cb called with loginState=NULL"));
 	}
-
-	free(accountKey);
 }
 
 /*
@@ -924,11 +901,9 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 
 	gboolean loggedOut = FALSE;
 	bool noRetry = true;
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
-	char* username = getMojoFriendlyUsername(account->username, serviceName);
-	char* accountKey = getAccountKey(username, serviceName);
+	std::string const& accountKey = getAccountKeyFromPurpleAccount(account);
 
-	if (g_hash_table_lookup(s_onlineAccountData, accountKey) != NULL)
+	if (g_hash_table_lookup(s_onlineAccountData, accountKey.c_str()) != NULL)
 	{
 		/* 
 		 * We were online on this account and are now disconnected because either a) the data connection is dropped, 
@@ -952,11 +927,11 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 		/*
 		 * cancel the connect timeout for this account
 		 */
-		guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey);
+		guint timerHandle = (guint)g_hash_table_lookup(s_accountLoginTimers, accountKey.c_str());
 		purple_timeout_remove(timerHandle);
-		g_hash_table_remove(s_accountLoginTimers, accountKey);
+		g_hash_table_remove(s_accountLoginTimers, accountKey.c_str());
 
-		if (g_hash_table_lookup(s_pendingAccountData, accountKey) == NULL)
+		if (g_hash_table_lookup(s_pendingAccountData, accountKey.c_str()) == NULL)
 		{
 			/*
 			 * This account was in neither of the account data lists (online or pending). We must have logged it out 
@@ -964,21 +939,17 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 			 * thought that the account was logged out anyways)
 			 */
 			MojLogError(IMServiceApp::s_log, _T("account_login_failed_cb: account in neither online or pending list. Why are we getting logged out? description %s:"), description);
-			// don't leak!
-			free(serviceName);
-			free(username);
-			free(accountKey);
 			return;
 		}
 		else
 		{
-			g_hash_table_remove(s_pendingAccountData, accountKey);
+			g_hash_table_remove(s_pendingAccountData, accountKey.c_str());
 		}
 	}
 
 	const char* mojoFriendlyErrorCode = getMojoFriendlyErrorCode(type);
-	const char* accountBoundToIpAddress = (char*)g_hash_table_lookup(s_ipAddressesBoundTo, accountKey);
-	const char* connectionType = (char*)g_hash_table_lookup(s_connectionTypeData, accountKey);
+	const char* accountBoundToIpAddress = (char*)g_hash_table_lookup(s_ipAddressesBoundTo, accountKey.c_str());
+	const char* connectionType = (char*)g_hash_table_lookup(s_connectionTypeData, accountKey.c_str());
 
 	if (accountBoundToIpAddress == NULL)
 	{
@@ -989,36 +960,32 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 	{
 		connectionType = "";
 	}
-	MojLogInfo(IMServiceApp::s_log, _T("account_login_failed_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey);
-	g_hash_table_remove(s_onlineAccountData, accountKey);
-	g_hash_table_remove(s_ipAddressesBoundTo, accountKey);
-	g_hash_table_remove(s_connectionTypeData, accountKey);
+	MojLogInfo(IMServiceApp::s_log, _T("account_login_failed_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey.c_str());
+	g_hash_table_remove(s_onlineAccountData, accountKey.c_str());
+	g_hash_table_remove(s_ipAddressesBoundTo, accountKey.c_str());
+	g_hash_table_remove(s_connectionTypeData, accountKey.c_str());
  
-	if (g_hash_table_lookup(s_offlineAccountData, accountKey) == NULL)
+	if (g_hash_table_lookup(s_offlineAccountData, accountKey.c_str()) == NULL)
 	{
 		/*
 		 * Keep the PurpleAccount struct to reuse in future logins
 		 */
-		g_hash_table_insert(s_offlineAccountData, accountKey, account);
-		// don't free the accountKey in this case since now s_offlineAccountData points to it
-		accountKey = NULL;
+		g_hash_table_insert(s_offlineAccountData, (void*)accountKey.c_str(), account);
 	}
 	
 	// reply with login failed
 	if (loginState != NULL)
 	{
+		std::string const& serviceName = getServiceNameFromPurpleAccount(account);
+		std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
 		//TODO: determine if there are cases where noRetry should be false
 		//TODO: include "description" parameter because it had useful details?
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_FAILED, loggedOut, mojoFriendlyErrorCode, noRetry);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_FAILED, loggedOut, mojoFriendlyErrorCode, noRetry);
 	}
 	else
 	{
 		MojLogError(IMServiceApp::s_log, _T("ERROR: account_login_failed_cb called with loginState=NULL"));
 	}
-	free(serviceName);
-	free(username);
-	if (NULL != accountKey)
-		free(accountKey);
 }
 
 static void account_status_changed(PurpleAccount* account, PurpleStatus* oldStatus, PurpleStatus* newStatus, gpointer loginState)
@@ -1068,9 +1035,9 @@ void incoming_message_cb(PurpleConversation* conv, const char* who, const char* 
 	 * snippet taken from nullclient
 	 */
 	const char* usernameFrom;
-	if (who &&* who)
+	if (who && *who)
 		usernameFrom = who;
-	else if (alias &&* alias)
+	else if (alias && *alias)
 		usernameFrom = alias;
 	else
 		usernameFrom = "";
@@ -1084,36 +1051,11 @@ void incoming_message_cb(PurpleConversation* conv, const char* who, const char* 
 	PurpleAccount* account = purple_conversation_get_account(conv);
 
 	// these never return null...
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
-	char* username = getMojoFriendlyUsername(account->username, serviceName);
-
-	if (strcmp(username, usernameFrom) == 0) // TODO: should this compare use account->username?
-	{
-		/* We get notified even though we sent the message. Just ignore it */
-		free(serviceName);
-		free(username);
-		return;
-	}
-
-	if (strcmp(serviceName, SERVICENAME_AIM) == 0 && (strcmp(usernameFrom, "aolsystemmsg") == 0 || strcmp(usernameFrom,
-			"AOL System Msg") == 0))
-	{
-		/*
-		 * ignore messages from aolsystemmsg telling us that we're logged in somewhere else
-		 */
-		free(serviceName);
-		free(username);
-		return;
-	}
-
-	char* usernameFromStripped = stripResourceFromGtalkUsername(usernameFrom, serviceName);
+	std::string const& serviceName = getServiceNameFromPurpleAccount(account);
+	std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
 
 	// call the transport service incoming message handler
-	s_imServiceHandler->incomingIM(serviceName, username, usernameFromStripped, message);
-
-	free(serviceName);
-	free(username);
-	free(usernameFromStripped);
+	s_imServiceHandler->incomingIM(serviceName.c_str(), username.c_str(), usernameFrom, message);
 }
 
 /*
@@ -1129,9 +1071,9 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 	MojLogInfo(IMServiceApp::s_log, _T("request_authorize_cb called. remote user: %s, id: %s, message: %s"), remote_user, id, message);
 
 	// these never return null...
-	char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
-	char* username = getMojoFriendlyUsername(account->username, serviceName);
-	char* usernameFromStripped = stripResourceFromGtalkUsername(remote_user, serviceName);
+	std::string const& serviceName = getServiceNameFromPurpleAccount(account);
+	std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
+	const char* usernameFromStripped = remote_user;
 
 	// Save off the authorize/deny callbacks to use later
 	AuthRequest *aa = g_new0(AuthRequest, 1);
@@ -1142,7 +1084,7 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 	aa->alias = g_strdup(alias);
 	aa->account = account;
 
-	char *authRequestKey = getAuthRequestKey(username, serviceName, usernameFromStripped);
+	char *authRequestKey = getAuthRequestKey(username.c_str(), serviceName.c_str(), usernameFromStripped);
 	// if there is already an entry for this, we need to replace it since callback function pointers will change on login
 	// old object gets deleted by our destroy functions specified in the hash table construction
 	g_hash_table_replace(s_AuthorizeRequests, authRequestKey, aa);
@@ -1150,15 +1092,10 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 	logAuthRequestTableValues();
 
 	// call back into IMServiceHandler to create a receivedBuddyInvite imCommand.
-	s_imServiceHandler->receivedBuddyInvite(serviceName, username, usernameFromStripped, message);
+	s_imServiceHandler->receivedBuddyInvite(serviceName.c_str(), username.c_str(), usernameFromStripped, message);
 
-	free(serviceName);
-	free(username);
-	free(usernameFromStripped);
 	// don't free the authRequestKey - it is not copied, but held onto for the life of the hash table once inserted
-
 	return NULL;
-
 }
 
 /*
@@ -1196,13 +1133,10 @@ gboolean connectTimeoutCallback(gpointer data)
 
 	if (s_loginState)
 	{
-		char* serviceName = getServiceNameFromPrplProtocolId(account->protocol_id);
-		char* username = getMojoFriendlyUsername(account->username, serviceName);
+		std::string const& serviceName = getServiceNameFromPurpleAccount(account);
+		std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
 
-		s_loginState->loginResult(serviceName, username, LoginCallbackInterface::LOGIN_TIMEOUT, false, ERROR_NETWORK_ERROR, true);
-
-		free(serviceName);
-		free(username);
+		s_loginState->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_TIMEOUT, false, ERROR_NETWORK_ERROR, true);
 	}
 	else
 	{
@@ -1278,7 +1212,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	LoginResult result = OK;
 
 	PurpleAccount* account;
-	char* accountKey = NULL;
+	std::string accountKey;
 	bool accountIsAlreadyOnline = FALSE;
 	bool accountIsAlreadyPending = FALSE;
 
@@ -1313,23 +1247,23 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	accountKey = getAccountKey(params->username, params->serviceName);
 
 	// If this account id isn't yet stored, then keep track of it now.
-	if (g_hash_table_lookup(s_AccountIdsData, accountKey) == NULL)
+	if (g_hash_table_lookup(s_AccountIdsData, accountKey.c_str()) == NULL)
 	{
-		g_hash_table_insert(s_AccountIdsData, accountKey, strdup(params->accountId));
+		g_hash_table_insert(s_AccountIdsData, (void*)accountKey.c_str(), strdup(params->accountId));
 	}
 
 	/*
 	 * Let's check to see if we're already logged in to this account or that we're already in the process of logging in 
 	 * to this account. This can happen when mojo goes down and comes back up.
 	 */
-	alreadyActiveAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	alreadyActiveAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	if (alreadyActiveAccount != NULL)
 	{
 		accountIsAlreadyOnline = TRUE;
 	}
 	else
 	{
-		alreadyActiveAccount = (PurpleAccount*)g_hash_table_lookup(s_pendingAccountData, accountKey);
+		alreadyActiveAccount = (PurpleAccount*)g_hash_table_lookup(s_pendingAccountData, accountKey.c_str());
 		if (alreadyActiveAccount != NULL)
 		{
 			accountIsAlreadyPending = TRUE;
@@ -1342,7 +1276,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		 * We're either already logged in to this account or we're already in the process of logging in to this account 
 		 * (i.e. it's pending; waiting for server response)
 		 */
-		char* accountBoundToIpAddress = (char*)g_hash_table_lookup(s_ipAddressesBoundTo, accountKey);
+		char* accountBoundToIpAddress = (char*)g_hash_table_lookup(s_ipAddressesBoundTo, accountKey.c_str());
 		if (accountBoundToIpAddress != NULL && strcmp(params->localIpAddress, accountBoundToIpAddress) == 0)
 		{
 			/*
@@ -1371,14 +1305,14 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			 * Since mojo went down and came back up it didn't know that the account was connected anyways.
 			 * So let's take the account out of the account data hash and then disconnect it.
 			 */
-			if (g_hash_table_lookup(s_onlineAccountData, accountKey) != NULL)
+			if (g_hash_table_lookup(s_onlineAccountData, accountKey.c_str()) != NULL)
 			{
-				MojLogInfo(IMServiceApp::s_log, _T("LibpurpleAdapter::login: removing account from onlineAccountData hash table. accountKey %s"), accountKey);
-				g_hash_table_remove(s_onlineAccountData, accountKey);
+				MojLogInfo(IMServiceApp::s_log, _T("LibpurpleAdapter::login: removing account from onlineAccountData hash table. accountKey %s"), accountKey.c_str());
+				g_hash_table_remove(s_onlineAccountData, accountKey.c_str());
 			}
-			if (g_hash_table_lookup(s_pendingAccountData, accountKey) != NULL)
+			if (g_hash_table_lookup(s_pendingAccountData, accountKey.c_str()) != NULL)
 			{
-				g_hash_table_remove(s_pendingAccountData, accountKey);
+				g_hash_table_remove(s_pendingAccountData, accountKey.c_str());
 			}
 			purple_account_disconnect(alreadyActiveAccount);
 		}
@@ -1389,7 +1323,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	 */
 
 	// TODO this currently ignores authentication token, but should check it as well when support for auth token is added
-	if (password == "")
+	if (strcmp(params->password, "") == 0)
 	{
 		MojLogError(IMServiceApp::s_log, _T("Error: null or empty password trying to log in to servicename %s"), params->serviceName);
 	    return INVALID_CREDENTIALS;
@@ -1399,10 +1333,10 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/* save the local IP address that we need to use */
 		// TODO - move this to #ifdef. If you are running imlibpurpletransport on desktop, but tethered to device, params->localIpAddress needs to be set to
 		// NULL otherwise login will fail...
-		if (localIpAddress != "")
+		if (strcmp(params->localIpAddress, "") != 0)
 		{
 			purple_prefs_remove("/purple/network/preferred_local_ip_address");
-			purple_prefs_add_string("/purple/network/preferred_local_ip_address", localIpAddress);
+			purple_prefs_add_string("/purple/network/preferred_local_ip_address", params->localIpAddress);
 		}
 		else
 		{
@@ -1418,13 +1352,13 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/* save the local IP address that we need to use */
 		if (params->connectionType != NULL && params->connectionType[0] != 0)
 		{
-			g_hash_table_insert(s_connectionTypeData, accountKey, strdup(params->connectionType));
+			g_hash_table_insert(s_connectionTypeData, (void*)accountKey.c_str(), strdup(params->connectionType));
 		}
 
 		/*
 		 * If we've already logged in to this account before then re-use the old PurpleAccount struct
 		 */
-		account = (PurpleAccount*)g_hash_table_lookup(s_offlineAccountData, accountKey);
+		account = (PurpleAccount*)g_hash_table_lookup(s_offlineAccountData, accountKey.c_str());
 		if (!account)
 		{
             MojString username;
@@ -1437,6 +1371,12 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login failed to create new Purple account"));
 				return FAILED;
 			}
+
+			AccountMetaData* amd = new AccountMetaData;
+			amd->account_key = strndup(accountKey.c_str(), accountKey.size());
+			amd->servicename = params->serviceName;
+
+			account->ui_data = (void*)amd;
 		}
 
 		MojLogInfo(IMServiceApp::s_log, _T("Logging in..."));
@@ -1447,12 +1387,12 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	if (result == OK)
 	{
 		/* mark the account as pending */
-		g_hash_table_insert(s_pendingAccountData, accountKey, account);
+		g_hash_table_insert(s_pendingAccountData, (void*)accountKey.c_str(), account);
 
 		if (params->localIpAddress != NULL && params->localIpAddress[0] != 0)
 		{
 			/* keep track of the local IP address that we bound to when logging in to this account */
-			g_hash_table_insert(s_ipAddressesBoundTo, accountKey, strdup(params->localIpAddress));
+			g_hash_table_insert(s_ipAddressesBoundTo, (void*)accountKey.c_str(), strdup(params->localIpAddress));
 		}
 
 		/* It's necessary to enable the account first. */
@@ -1463,8 +1403,8 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/*
 		 * Create a timer for this account's login so it can fail the login after a timeout.
 		 */
-		guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, accountKey);
-		g_hash_table_insert(s_accountLoginTimers, accountKey, (gpointer)timerHandle);
+		guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, strdup(accountKey.c_str()));
+		g_hash_table_insert(s_accountLoginTimers, (void*)accountKey.c_str(), (gpointer)timerHandle);
 
 		PurpleStatusPrimitive prim = getPurpleAvailabilityFromPalmAvailability(params->availability);
 		PurpleSavedStatus* savedStatus = purple_savedstatus_new(NULL, prim);
@@ -1492,15 +1432,15 @@ bool LibpurpleAdapter::logout(const char* serviceName, const char* username, Log
 
 	MojLogInfo(IMServiceApp::s_log, _T("Parameters: servicename %s"), serviceName);
 
-	char* accountKey = getAccountKey(username, serviceName);
+	std::string const& accountKey = getAccountKey(username, serviceName);
 
 	// Remove the accountId since a logout could be from the user removing the account
-	g_hash_table_remove(s_AccountIdsData, accountKey);
+	g_hash_table_remove(s_AccountIdsData, accountKey.c_str());
 
-	PurpleAccount* accountTologoutFrom = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	PurpleAccount* accountTologoutFrom = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	if (accountTologoutFrom == NULL)
 	{
-		accountTologoutFrom = (PurpleAccount*)g_hash_table_lookup(s_pendingAccountData, accountKey);
+		accountTologoutFrom = (PurpleAccount*)g_hash_table_lookup(s_pendingAccountData, accountKey.c_str());
 		if (accountTologoutFrom == NULL)
 		{
 			MojLogError(IMServiceApp::s_log, _T("Trying to logout from an account that is not logged in. service name %s"), serviceName);
@@ -1510,13 +1450,12 @@ bool LibpurpleAdapter::logout(const char* serviceName, const char* username, Log
 
 	if (accountTologoutFrom != NULL)
 	{
+		// TODO: !!! LEAK !!!
+		//		 This wouldn't happen, if we'd use a proper C++ object here :)
+		delete (AccountMetaData*)accountTologoutFrom->ui_data;
 		purple_account_disconnect(accountTologoutFrom);
 	}
 
-	if (accountKey)
-	{
-		free(accountKey);
-	}
 	return success;
 }
 
@@ -1533,8 +1472,8 @@ bool LibpurpleAdapter::setMyAvailability(const char* serviceName, const char* us
 	MojLogInfo(IMServiceApp::s_log, _T("Parameters: serviceName %s, availability %i"), serviceName, availability);
 
 	bool retVal = FALSE;
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	if (account == NULL)
 	{
 		//this should never happen based on MessagingService's logic
@@ -1570,8 +1509,6 @@ bool LibpurpleAdapter::setMyAvailability(const char* serviceName, const char* us
 		purple_account_set_status_list(account, purple_status_type_get_id(type), TRUE, attrs);
 	}
 
-	// delete the key since it was just for lookup
-	free(accountKey);
 	return retVal;
 }
 
@@ -1588,8 +1525,8 @@ bool LibpurpleAdapter::setMyCustomMessage(const char* serviceName, const char* u
 	MojLogInfo(IMServiceApp::s_log, _T("Parameters: serviceName %s"), serviceName);
 
 	bool retVal = FALSE;
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	if (account == NULL)
 	{
 		//this should never happen based on MessagingService's logic
@@ -1609,8 +1546,6 @@ bool LibpurpleAdapter::setMyCustomMessage(const char* serviceName, const char* u
 		purple_account_set_status_list(account, purple_status_type_get_id(type), TRUE, attrs);
 	}
 
-	// delete the key since it was just for lookup
-	free(accountKey);
 	return retVal;
 }
 
@@ -1638,17 +1573,17 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 		return INVALID_PARAMS;
 	}
 
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	success = (account != NULL);
 	if (success)
 	{
 		// strip off the "@aol.com" if needed
-		char *transportFriendlyUserName = getPrplFriendlyUsername(serviceName, buddyUsername);
+		std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, buddyUsername);
 		if (block)
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: deny %s. account perm_deny %d"), transportFriendlyUserName, account->perm_deny);
-			purple_privacy_deny(account, transportFriendlyUserName, false, true);
+			MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: deny %s. account perm_deny %d"), transportFriendlyUserName.c_str(), account->perm_deny);
+			purple_privacy_deny(account, transportFriendlyUserName.c_str(), false, true);
 			//bool success = purple_privacy_deny_add(account, transportFriendlyUserName, false);
 			//if (!success) {
 			//	MojLogError(IMServiceApp::s_log, "blockBuddy: purple_privacy_deny_add - returned false");
@@ -1660,19 +1595,13 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 		}
 		else
 		{
-			MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: allow %s"), transportFriendlyUserName);
-			purple_privacy_allow(account, transportFriendlyUserName, false, true);
+			MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: allow %s"), transportFriendlyUserName.c_str());
+			purple_privacy_allow(account, transportFriendlyUserName.c_str(), false, true);
 		}
-		free(transportFriendlyUserName);
 	}
 	else
 	{
 		MojLogError(IMServiceApp::s_log, "blockBuddy: Trying to send from an account that is not logged in. service name %s", serviceName);
-	}
-
-	if (accountKey)
-	{
-		free(accountKey);
 	}
 
 	if (success)
@@ -1704,16 +1633,16 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::removeBuddy(const char* serviceNa
 		return INVALID_PARAMS;
 	}
 
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	success = (account != NULL);
 	if (success)
 	{
 		// strip off the "@aol.com" if needed
-		char *transportFriendlyUserName = getPrplFriendlyUsername(serviceName, buddyUsername);
-		MojLogInfo(IMServiceApp::s_log, _T("removeBuddy: %s"), transportFriendlyUserName);
+		std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, buddyUsername);
+		MojLogInfo(IMServiceApp::s_log, _T("removeBuddy: %s"), transportFriendlyUserName.c_str());
 
-		PurpleBuddy* buddy = purple_find_buddy(account, transportFriendlyUserName);
+		PurpleBuddy* buddy = purple_find_buddy(account, transportFriendlyUserName.c_str());
 		if (NULL == buddy) {
 			MojLogError(IMServiceApp::s_log, _T("could not find buddy in list - cannot remove"));
 			success = FALSE;
@@ -1726,17 +1655,10 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::removeBuddy(const char* serviceNa
 			// remove from buddy list - generates a "buddy-removed" signal
 			purple_blist_remove_buddy(buddy);
 		}
-
-		free(transportFriendlyUserName);
 	}
 	else
 	{
 		MojLogError(IMServiceApp::s_log, "removeBuddy: Trying to send from an account that is not logged in. service name %s", serviceName);
-	}
-
-	if (accountKey)
-	{
-		free(accountKey);
 	}
 
 	if (success)
@@ -1768,16 +1690,16 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::addBuddy(const char* serviceName,
 		return INVALID_PARAMS;
 	}
 
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	success = (account != NULL);
 	if (success)
 	{
 		// strip off the "@aol.com" if needed
-		char *transportFriendlyUserName = getPrplFriendlyUsername(serviceName, buddyUsername);
-		MojLogInfo(IMServiceApp::s_log, _T("addBuddy: %s"), transportFriendlyUserName);
+		std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, buddyUsername);
+		MojLogInfo(IMServiceApp::s_log, _T("addBuddy: %s"), transportFriendlyUserName.c_str());
 
-		PurpleBuddy* buddy = purple_buddy_new(account, transportFriendlyUserName, /*alias*/ NULL);
+		PurpleBuddy* buddy = purple_buddy_new(account, transportFriendlyUserName.c_str(), /*alias*/ NULL);
 
 		// add buddy to list
 		/*
@@ -1818,17 +1740,10 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::addBuddy(const char* serviceName,
 			identical on ICQ when importing a list of AIM buddies (which to my limited
 			knowledge does not require authorization).
 		*/
-
-		free(transportFriendlyUserName);
 	}
 	else
 	{
 		MojLogError(IMServiceApp::s_log, "addBuddy: Trying to send from an account that is not logged in. service name %s", serviceName);
-	}
-
-	if (accountKey)
-	{
-		free(accountKey);
 	}
 
 	if (success)
@@ -1850,17 +1765,14 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::authorizeBuddy(const char* servic
 	}
 
 	// if we got here, we need to be online...
-	char *accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* onlineAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string const& accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* onlineAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 
 	if (onlineAccount == NULL)
 	{
 		MojLogError(IMServiceApp::s_log, _T("authorizeBuddy: account not online"));
-		free (accountKey);
 		return USER_NOT_LOGGED_IN;
 	}
-	// free key since it was only used for lookup
-	free (accountKey);
 
 	// create the key and find the auth_and_add object in the s_AuthorizeRequests table
 	char *authRequestKey = getAuthRequestKey(username, serviceName, fromUsername);
@@ -1912,16 +1824,13 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::declineBuddy(const char* serviceN
 	}
 
 	// if we got here, we need to be online...
-	char *accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* onlineAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* onlineAccount = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	if (onlineAccount == NULL)
 	{
 		MojLogError(IMServiceApp::s_log, _T("declineBuddy: account not online"));
-		free (accountKey);
 		return USER_NOT_LOGGED_IN;
 	}
-	// free key since it was only used for lookup
-	free (accountKey);
 
 	// create the key and find the auth_and_add object in the s_AuthorizeRequests table
 	char *authRequestKey = getAuthRequestKey(username, serviceName, fromUsername);
@@ -1968,8 +1877,8 @@ bool LibpurpleAdapter::getFullBuddyList(const char* serviceName, const char* use
 	 * Send over the full buddy list if the account is already logged in
 	 */
 	bool success;
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* account = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 	if (account == NULL)
 	{
 		MojLogError(IMServiceApp::s_log, _T("getFullBuddyList: ERROR: No account for user on %s"), serviceName);
@@ -2052,10 +1961,6 @@ bool LibpurpleAdapter::getFullBuddyList(const char* serviceName, const char* use
 		//TODO free the buddyList object???
 	}
 
-	if (accountKey)
-	{
-		free(accountKey);
-	}
 	return success;
 }
 
@@ -2070,8 +1975,8 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceNa
 	LibpurpleAdapter::SendResult retVal = LibpurpleAdapter::SENT;
 	MojLogInfo(IMServiceApp::s_log, _T("%s called."), __FUNCTION__);
 
-	char* accountKey = getAccountKey(username, serviceName);
-	PurpleAccount* accountToSendFrom = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey);
+	std::string accountKey = getAccountKey(username, serviceName);
+	PurpleAccount* accountToSendFrom = (PurpleAccount*)g_hash_table_lookup(s_onlineAccountData, accountKey.c_str());
 
 	if (accountToSendFrom == NULL)
 	{
@@ -2081,8 +1986,8 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceNa
 	else
 	{
 		// strip off the "@aol.com" if needed
-		char *transportFriendlyUserName = getPrplFriendlyUsername(serviceName, usernameTo);
-		PurpleConversation* purpleConversation = purple_conversation_new(PURPLE_CONV_TYPE_IM, accountToSendFrom, transportFriendlyUserName);
+		std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, usernameTo);
+		PurpleConversation* purpleConversation = purple_conversation_new(PURPLE_CONV_TYPE_IM, accountToSendFrom, transportFriendlyUserName.c_str());
 		char* messageTextUnescaped = g_strcompress(messageText);
 
 		// replace this with the lower level call so we can try to get an error code back...
@@ -2099,10 +2004,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceNa
 		}
 
 		free(messageTextUnescaped);
-		free(transportFriendlyUserName);
 	}
-	if (accountKey)
-		free(accountKey);
 	return retVal;
 }
 
@@ -2187,15 +2089,9 @@ bool LibpurpleAdapter::deviceConnectionClosed(bool all, const char* ipAddress)
 		for (accountIterator = accountToLogoutList; accountIterator != NULL; accountIterator = accountIterator->next)
 		{
 			account = (PurpleAccount*) accountIterator->data;
-			char* serviceName = account->protocol_id;
-			char* username = getMojoFriendlyUsername(account->username, serviceName);
-			char* accountKey = getAccountKey(username, serviceName);
 
-			g_hash_table_remove(s_ipAddressesBoundTo, accountKey);
-
-			free(serviceName);
-			free(username);
-			free(accountKey);
+			std::string accountKey = getAccountKeyFromPurpleAccount(account);
+			g_hash_table_remove(s_ipAddressesBoundTo, accountKey.c_str());
 		}
 	}
 

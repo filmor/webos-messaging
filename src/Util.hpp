@@ -30,8 +30,8 @@ namespace Util
     PurpleAccount* createPurpleAccount(MojString username, MojObject config);
 
     // If there is 
-    MojString getMojoUsername(MojString username, MojObject config);
-    const char* getPurpleUsername(MojString username, MojObject config);
+	std::string getMojoUsername(std::string username, std::string const& prpl);
+	std::string getPurpleUsername(std::string const& serviceName, std::string const& username);
 
 }
 

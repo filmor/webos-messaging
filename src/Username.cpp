@@ -3,24 +3,35 @@
 namespace Util
 {
 
-    MojString getMojoUsername(MojString username, MojObject config)
+	// TODO: Use regular expressions for this, which are to be set in
+	//		 the config
+	std::string getMojoUsername(std::string username, std::string const& prpl)
     {
-        MojSize at_char = username.find('@');
+		std::size_t at_char = username.find('@');
 
         if (at_char == username.length())
         {
-            MojString prpl;
-            config.getRequired("prpl", prpl);
             username.append("@");
-            username.append(prpl.data());
+            username.append(prpl);
             username.append(".example.com");
         }
+
+		return username;
     }
 
-    const char* getPurpleUsername(MojString username, MojObject config)
+	std::string getPurpleUsername(std::string const& serviceName, std::string const& username)
     {
-#error NIY
-        return username.data();    
+		std::size_t pos = username.rfind(".example.com");
+
+		if (pos != std::string::npos)
+		{
+			pos = username.rfind("@", pos);
+
+			// This or pos +1?
+			return username.substr(0, pos);
+		}
+
+        return username.data();
     }
 
 }
