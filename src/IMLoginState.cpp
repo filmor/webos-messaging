@@ -81,12 +81,6 @@ void IMLoginState::handlerDone(IMLoginStateHandlerInterface* handler)
 	m_listener->ProcessDone();
 }
 
-void IMLoginState::loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload)
-{
-	m_signalHandler = new IMLoginStateHandler(m_service, m_loginStateRevision, this);
-	m_signalHandler->loginForTesting(serviceMsg, payload);
-}
-
 /*
  * LoginState DB watch was triggered
  */

@@ -82,7 +82,6 @@ private:
  */
 class IMLoginStateHandlerInterface {
 public:
-	virtual void loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload) = 0;
 	// This is called by the db watch on com.palm.imloginstate
 	virtual MojErr handleLoginStateChange(MojServiceMessage* serviceMsg, const MojObject payload) = 0;
 
@@ -100,7 +99,6 @@ public:
 	IMLoginState(MojService* service, IMServiceApp::Listener* listener);
 	~IMLoginState();
 
-	void loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload);
 	// This is called by the db watch on com.palm.imloginstate
 	MojErr handleLoginStateChange(MojServiceMessage* serviceMsg, const MojObject payload);
 
@@ -140,8 +138,6 @@ class IMLoginStateHandler : public MojSignalHandler, public IMLoginStateHandlerI
 public:
 	IMLoginStateHandler(MojService* service, const MojInt64 loginStateRevision, IMLoginState* loginStateController);
 	virtual ~IMLoginStateHandler();
-
-	void loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload);
 
 	// This is called by the db watch on com.palm.imloginstate
 	virtual MojErr handleLoginStateChange(MojServiceMessage* serviceMsg, const MojObject payload);

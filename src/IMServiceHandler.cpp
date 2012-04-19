@@ -35,7 +35,6 @@
 #define IMVersionString  "IMLibpurpleService 7-13 12:30pm starting...."
 
 const IMServiceHandler::Method IMServiceHandler::s_methods[] = {
-	{_T("loginForTesting"), (Callback) &IMServiceHandler::loginForTesting},
 	{_T("onEnabled"), (Callback) &IMServiceHandler::onEnabled},
 	{_T("loginStateChanged"), (Callback) &IMServiceHandler::handleLoginStateChange},
 	{_T("sendIM"), (Callback) &IMServiceHandler::IMSend}, // callback for activity manager
@@ -346,17 +345,6 @@ bool IMServiceHandler::buddyInviteDeclined(const char* serviceName, const char* 
 
 	// need to delete buddy and contact from DB
 	return true;
-}
-
-
-MojErr IMServiceHandler::loginForTesting(MojServiceMessage* serviceMsg, const MojObject payload)
-{
-	if (m_loginState == NULL) {
-		m_loginState = new IMLoginState(m_service, this);
-	}
-
-	m_loginState->loginForTesting(serviceMsg, payload);
-	return MojErrNone;
 }
 
 /*
