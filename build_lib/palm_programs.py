@@ -10,6 +10,7 @@ def configure(conf):
     conf.env.append_value("LIB_PALM_BUILD", ["lunaservice", "mojoluna",
                                   "mojocore", "cjson", "mojodb"])
     conf.env.append_value("DEFINES_PALM_BUILD", ["MOJ_LINUX", "DEVICE"])
+    conf.env.append_value("CXXFLAGS_PALM_BUILD", "-std=c++0x")
     conf.env.append_value("INCLUDES_PALM_BUILD", [libpurple.get_path()])
 
 def _flatten(l):
