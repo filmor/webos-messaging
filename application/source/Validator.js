@@ -33,6 +33,7 @@ enyo.kind({
             call_params["locale"] = enyo.g11n.toISOString();
 
         this.$.getOptions.call({ params: [ call_params ] });
+
     },
 
     gotOptions: function(inSender, inResponse) {
@@ -60,6 +61,14 @@ enyo.kind({
             config: { prpl: this.template.loc_prpl, preferences: this.prefs }
         }
 
+        this.createComponent({
+            kind: "Purple.AccountService",
+            name: "getUIEvents",
+            onResponse: "uiEvent",
+            subscribe: true
+        });
+        this.$.getUIEvents.call();
+
         // TODO: Allow updating an account
         this.$.validateAccount.call({
             params: [params],
@@ -82,9 +91,22 @@ enyo.kind({
         this.$.password.setDisabled(false);
         this.$.options.setDisabled(false);
 
+        this.$.getUIEvents.destroy();
+
         this.$.createButton.setCaption(AccountsUtil.BUTTON_SIGN_IN);
         this.$.createButton.setActive(false);
         this.$.createButton.setDisabled(false);
+    },
+
+    uiEvent: function(inSender, inResponse) {
+        this.$.popupGenerator.showPopup(inResponse);
+    },
+
+    popupAction: function(inSender, inResponse) {
+        console.log(inResponse);
+        if ('answer' in inResponse) {
+            this.$.answerUIEvent.call({params: inResponse});
+        }
     },
 
     components: [
@@ -167,9 +189,18 @@ enyo.kind({
             ]
         },
         {
+            name: "popupGenerator",
+            kind: "Purple.PopupGenerator",
+            onAction: "popupAction"
+        },
+        {
             name: "getOptions",
             kind: "Purple.AccountService",
             onSuccess: "gotOptions",
+        },
+        {
+            name: "answerUIEvent",
+            kind: "Purple.AccountService"
         },
         {
             name: "validateAccount",

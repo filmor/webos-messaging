@@ -1,0 +1,11 @@
+{
+    "success": true,
+    "id": 1337,
+    "title": "Palim",
+    "primary": "Palim Palim",
+    "actions": [
+        "blubb",
+        "brabbel",
+        "badong"
+    ]
+}

@@ -44,7 +44,7 @@ static void* enyo_request_action(const char* title, const char* primary,
         action.second = va_arg(actions, PurpleRequestActionCb);
     }
 
-    // TODO
+    // TODO: Add request id
     // queue.push(request, actions);
     return 0;
 }
