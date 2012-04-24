@@ -11,10 +11,11 @@ For now you'll need the following:
 
 - Python
 - An ARM-Linux cross-compiler toolchain (like the one from the PDK),
-    version 4.3.3
+    version `4.3.3`
+- The PDK itself (for libxml2)
 - The pidgin source package (I guess every version between 2 and 3 should work,
     just use the newest one ;))
-- cyrus-sasl, version >=2.1 if you want to use jabber
+- cyrus-sasl, version `>=2.1` if you want to use jabber
 - ar, tar and bzip2 or gz (should come with every proper unix system)
 
 
@@ -36,6 +37,10 @@ After that you can build everything at once (TODO: allow split builds) using:
 
     $ ./waf
 
-Building an ipkg is done via (NOT YET IMPLEMENTED):
+Building an ipkg is done via (NOT IMPLEMENTED YET):
 
     $ ./waf make_ipkg
+
+You might need to copy some libraries from your webOS device into
+`build_lib/lib`, especially `libstdc++.so`, since the one deployed in the
+PDK is broken.
