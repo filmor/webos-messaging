@@ -273,6 +273,8 @@ MojErr IMAccountValidatorApp::initializeLibPurple() {
 	 */
 	signal(SIGCHLD, SIG_IGN);
 
+    purple_util_set_user_dir("/var/preferences/org.webosinternals.purple");
+
 	/* turn on debugging. Turn off to keep the noise to a minimum. */
 	purple_debug_set_enabled(TRUE);
 
