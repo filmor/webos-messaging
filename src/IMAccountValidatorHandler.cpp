@@ -32,6 +32,8 @@
 const IMAccountValidatorHandler::Method IMAccountValidatorHandler::s_methods[] = {
 	{_T("checkCredentials"), (Callback) &IMAccountValidatorHandler::validateAccount},
     {_T("getOptions"), (Callback) &IMAccountValidatorHandler::getOptions},
+    {_T("getUIEvents"), (Callback) &IMAccountValidatorHandler::getUIEvents},
+    {_T("answerUIEvent"), (Callback) &IMAccountValidatorHandler::answerUIEvent},
 	{_T("logout"), (Callback) &IMAccountValidatorHandler::logout},
 	{NULL, NULL} };
 
@@ -48,8 +50,12 @@ IMAccountValidatorHandler::IMAccountValidatorHandler(MojService* service)
 
 IMAccountValidatorHandler::~IMAccountValidatorHandler()
 {
+    if (thread_)
+    {
+        thread_->interrupt();
+        delete thread_;
+    }
 	MojLogTrace(IMAccountValidatorApp::s_log);
-
 }
 
 /*
@@ -127,6 +133,71 @@ MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, cons
         return MojErrInvalidArg;
     }
 
+    return MojErrNone;
+}
+
+static void thread_func(MojServiceMessage* serviceMsg, bool const& running)
+{
+    MojObject elem;
+
+    // TODO: Check if serviceMsg belongs to an open request
+
+    while (running /* && serviceMsg->open()*/)
+    {
+        Purple::popEvent(elem);
+        serviceMsg->reply(elem);
+    }
+}
+
+MojErr IMAccountValidatorHandler::getUIEvents(MojServiceMessage* serviceMsg, const MojObject payload)
+{
+    // Subscription stuff
+    if (running_)
+    {
+        serviceMsg->replyError(MojErrInvalidArg, "Already getting UI events");
+    }
+    else
+    {
+        // Stop the thread in destructor
+        running_ = true;
+        if (thread_)
+        {
+            thread_->interrupt();
+            delete thread_;
+        }
+
+        thread_ = new boost::thread(thread_func, serviceMsg, running_);
+    }
+
+    return MojErrNone;
+}
+
+MojErr IMAccountValidatorHandler::answerUIEvent(MojServiceMessage* serviceMsg, const MojObject payload)
+{
+    unsigned id;
+    MojErr err = payload.getRequired("id", id);
+    if (err != MojErrNone)
+    {
+        serviceMsg->replyError(MojErrInvalidArg);
+        return MojErrInvalidArg;
+    }
+
+    unsigned answer;
+    err = payload.getRequired("answer", answer);
+    if (err != MojErrNone)
+    {
+        serviceMsg->replyError(MojErrInvalidArg);
+        return MojErrInvalidArg;
+    }
+
+    err = Purple::answerRequest(id, answer);
+    if (err != MojErrNone)
+    {
+        serviceMsg->replyError(MojErrInvalidArg);
+        return MojErrInvalidArg;
+    }
+
+    serviceMsg->replySuccess();
     return MojErrNone;
 }
 

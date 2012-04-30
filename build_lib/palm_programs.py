@@ -25,7 +25,7 @@ def _flatten(l):
 def build(bld):
     source_dir = "src"
     common = [join(source_dir, i) + ".cpp" for i in ("Protocol", "Util")]
-    av_glob = join(source_dir, "IMAccountValidator*.cpp")
+    av_glob = join(source_dir, "(IMAccountValidator*|PurpleUI).cpp")
     pt_glob = join(source_dir, "*.cpp")
 
     bld.objects(target="palm_common",
@@ -37,9 +37,16 @@ def build(bld):
 
     install_path = "${PREFIX}/files/var/usr/sbin"
 
+    bld.objects(target="boost_thread",
+                source=bld.path.ant_glob(join(source_dir, "boost_thread",
+                    "*.cpp")),
+                use="PALM_BUILD",
+                includes="build_lib/include"
+               )
+
     bld.program(target=validator,
                 source=bld.path.ant_glob(av_glob),
-                use="GLIB PALM_BUILD purple palm_common",
+                use="GLIB PALM_BUILD purple palm_common boost_thread",
                 install_path=install_path
                )
 

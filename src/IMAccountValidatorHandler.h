@@ -29,6 +29,10 @@
 #include "connection.h"
 #include "account.h"
 
+#include "PurpleUI.hpp"
+
+#include <boost/thread.hpp>
+
 // forward declaration to avoid circular #include refs
 class IMAccountValidatorApp;
 
@@ -89,6 +93,9 @@ private:
 	// account we are validating
 	PurpleAccount* m_account;
 
+    boost::thread* thread_;
+    bool running_;
+
 	// service message to reply back to
 	MojRefCountedPtr <MojServiceMessage> m_serviceMsg;
 	MojRefCountedPtr <MojServiceMessage> m_logoutServiceMsg;
@@ -96,6 +103,8 @@ private:
 	MojString m_mojoUsername;
 
     MojErr getOptions(MojServiceMessage* serviceMsg, const MojObject payload);
+    MojErr getUIEvents(MojServiceMessage* serviceMsg, const MojObject payload);
+    MojErr answerUIEvent(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr validateAccount(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr logout(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr getMojoFriendlyUsername(const char* serviceName, const char* username);

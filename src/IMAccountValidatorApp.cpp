@@ -50,6 +50,8 @@
 #include "core.h"
 #include "debug.h"
 
+#include "PurpleUI.hpp"
+
 const char* const IMAccountValidatorApp::ServiceName = _T("org.webosinternals.purple.validator");
 MojLogger IMAccountValidatorApp::s_log(_T("imaccountvalidator"));
 
@@ -177,6 +179,8 @@ static void null_ui_init(void)
        * just initialize the UI for conversations.
        */
       purple_conversations_set_ui_ops(&null_conv_uiops);
+      purple_request_set_ui_ops(Purple::getRequestOps());
+      purple_notify_set_ui_ops(Purple::getNotifyOps());
 }
 
 static PurpleCoreUiOps null_core_uiops =

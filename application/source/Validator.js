@@ -104,8 +104,12 @@ enyo.kind({
 
     popupAction: function(inSender, inResponse) {
         console.log(inResponse);
-        if ('answer' in inResponse) {
+        if ('answer' in inResponse && 'id' in inResponse) {
             this.$.answerUIEvent.call({params: inResponse});
+        }
+        else
+        {
+            console.log("Something is wrong here", inResponse);
         }
     },
 
