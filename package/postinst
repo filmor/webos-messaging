@@ -1,0 +1,29 @@
+#!/bin/sh
+
+PREFIX=org.webosinternals
+PACKAGE=${PREFIX}.purple
+
+VALIDATOR=${PACKAGE}.validator
+TRANSPORT=${PACKAGE}.transport
+
+INSTDIR=/media/cryptofs/apps/usr/palm/applications/${PACKAGE}
+
+# Is this really necessary?
+killall -HUP grep ${TRANSPORT} || true
+killall -HUP grep ${TRANSPORT} || true
+killall -HUP grep ${TRANSPORT} || true
+killall -HUP grep ${VALIDATOR} || true
+killall -HUP grep ${VALIDATOR} || true
+killall -HUP grep ${VALIDATOR} || true
+
+mkdir -p /var/preferences/${PACKAGE}
+
+cp ${INSTDIR}/system/var/ / -r
+cp ${INSTDIR}/system/etc/ / -r
+
+chmod 755 /var/usr/sbin/${VALIDATOR}
+chmod 755 /var/usr/sbin/${TRANSPORT}
+
+/usr/bin/ls-control scan-services || true
+
+luna-send -n1 palm://com.palm.applicationManager/rescan {} || true

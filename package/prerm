@@ -1,0 +1,32 @@
+#!/bin/sh
+
+PREFIX=org.webosinternals
+PACKAGE=${PREFIX}.purple
+
+VALIDATOR=${PACKAGE}.validator
+TRANSPORT=${PACKAGE}.transport
+
+INSTDIR=/media/cryptofs/apps/usr/palm/applications/${PACKAGE}
+
+# Is this really necessary?
+killall -HUP grep ${TRANSPORT} || true
+killall -HUP grep ${TRANSPORT} || true
+killall -HUP grep ${TRANSPORT} || true
+killall -HUP grep ${VALIDATOR} || true
+killall -HUP grep ${VALIDATOR} || true
+killall -HUP grep ${VALIDATOR} || true
+
+# Ignore most of the cleanup stuff for now.
+rm -f /var/palm/ls2/roles/prv/${PACKAGE}.transport.json
+rm -f /var/palm/ls2/roles/prv/${PACKAGE}.validator.json
+
+rm -f /var/palm/ls2/roles/pub/${PACKAGE}.transport.json
+rm -f /var/palm/ls2/roles/pub/${PACKAGE}.validator.json
+
+rm -f /var/palm/system-services/${PACKAGE}.transport.json
+rm -f /var/palm/system-services/${PACKAGE}.validator.json
+
+rm -f /var/usr/sbin/${PACKAGE}.transport
+rm -f /var/usr/sbin/${PACKAGE}.validator
+
+rm -rf ${INSTDIR}
