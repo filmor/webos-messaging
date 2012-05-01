@@ -25,13 +25,6 @@ namespace Util
 
     MojObject getProtocolOptions(MojString prpl)
     {
-        // TODO: Defaults for Facebook and Google Talk (later, for now just set
-        // the values manually in the wizard app)
-        //
-        // Like this: Derived defines getDefaults and returns a MojObject. The
-        // options are checked in the loop, if they are already set in the
-        // defaults, just continue.
-        //
         MojObject result;
 
         PurplePluginProtocolInfo* info = getProtocolInfo(prpl.data());
@@ -90,10 +83,6 @@ namespace Util
                         = purple_account_option_get_default_list_value(option);
                     node.putString("default_value", def ? def : "");
                 }
-
-
-                // TODO: Default value purple_account_option_get_list_default
-                //       Could be the same as the first value of the list
                 break;
 
             default:
