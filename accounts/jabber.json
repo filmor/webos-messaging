@@ -4,6 +4,6 @@
         "loc_name": "Jabber",
         "loc_usernameLabel": "Jabber ID",
         "loc_explainUsernameLabel": "username",
-        "loc_prpl": "prpl-jabber"
+        "prpl": "prpl-jabber"
     }
 }

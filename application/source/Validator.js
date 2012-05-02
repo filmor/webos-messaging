@@ -17,25 +17,25 @@ enyo.kind({
         if (params && (params.template || params.initialTemplate))
         {
             this.template = params.initialTemplate || params.template;
-            this.prefs = this.template.loc_preferences || {};
+            this.prefs = this.template.preferences || {};
         }
         else
         {
             this.template = {"templateId": "org.webosinternals.purple.icq",
-                             "loc_prpl": "prpl-icq"};
+                             "prpl": "prpl-icq",
+                             "loc_usernameLabel": "ICQ Number"};
         }
         
-        if ("loc_usernameLabel" in this.template)
-            this.$.usernameGroup.caption = this.template.loc_usernameLabel;
+        if (this.template.loc_usernameLabel)
+            this.$.usernameGroup.setCaption(this.template.loc_usernameLabel);
+        if (this.template.loc_passwordLabel)
+            this.$.passwordGroup.setCaption(this.template.loc_passwordLabel);
 
-        if ("loc_passwordLabel" in this.template)
-            this.$.passwordGroup.caption = this.template.loc_passwordLabel;
-
-        enyo.log(this.template.loc_prpl);
+        enyo.log(this.template);
 
         var locale = enyo.g11n && enyo.g11n.toString();
 
-        var call_params = { prpl: this.template.loc_prpl }
+        var call_params = { prpl: this.template.prpl }
 
         if (enyo.g11n.toISOString)
             call_params["locale"] = enyo.g11n.toISOString();
@@ -66,7 +66,7 @@ enyo.kind({
             username: this.$.username.getValue(),
             password: this.$.password.getValue(),
             templateId: this.template.templateId,
-            config: { prpl: this.template.loc_prpl, preferences: this.prefs }
+            config: { prpl: this.template.prpl, preferences: this.prefs }
         }
 
         this.createComponent({

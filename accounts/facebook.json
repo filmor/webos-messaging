@@ -8,7 +8,7 @@
     "@template": {
         "loc_name": "Facebook",
         "loc_usernameLabel": "Facebook E-Mail",
-        "loc_preferences": {
+        "preferences": {
             "server": "chat.facebook.com",
             "port": 5222
         }

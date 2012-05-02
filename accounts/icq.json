@@ -4,6 +4,6 @@
         "loc_name": "ICQ",
         "loc_usernameLabel": "ICQ Number",
         "loc_explainUsernameLabel": "12345678",
-        "loc_prpl": "prpl-icq"
+        "prpl": "prpl-icq"
     }
 }
