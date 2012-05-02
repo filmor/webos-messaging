@@ -1,32 +1,46 @@
 #!/bin/sh
 
-PREFIX=org.webosinternals
-PACKAGE=${PREFIX}.purple
+APPID=org.webosinternals.purple
+APPS=/media/cryptofs/apps
 
-VALIDATOR=${PACKAGE}.validator
-TRANSPORT=${PACKAGE}.transport
+VALIDATOR=${APPID}.validator
+TRANSPORT=${APPID}.transport
 
-INSTDIR=/media/cryptofs/apps/usr/palm/applications/${PACKAGE}
+APPDIR=${APPS}/usr/palm/applications/${APPID}
 
-# Is this really necessary?
-killall -HUP grep ${TRANSPORT} || true
-killall -HUP grep ${TRANSPORT} || true
-killall -HUP grep ${TRANSPORT} || true
-killall -HUP grep ${VALIDATOR} || true
-killall -HUP grep ${VALIDATOR} || true
-killall -HUP grep ${VALIDATOR} || true
+#Kill transport if it's running
+killall -HUP ${TRANSPORT} || true
 
-# Ignore most of the cleanup stuff for now.
-rm -f /var/palm/ls2/roles/prv/${PACKAGE}.transport.json
-rm -f /var/palm/ls2/roles/prv/${PACKAGE}.validator.json
+#Kill validator if it's running
+killall -HUP ${VALIDATOR} || true
 
-rm -f /var/palm/ls2/roles/pub/${PACKAGE}.transport.json
-rm -f /var/palm/ls2/roles/pub/${PACKAGE}.validator.json
+# Cleanup roles
+rm -f /var/palm/ls2/roles/prv/${VALIDATOR}.json
+rm -f /var/palm/ls2/roles/prv/${TRANSPORT}.json
 
-rm -f /var/palm/system-services/${PACKAGE}.transport.json
-rm -f /var/palm/system-services/${PACKAGE}.validator.json
+rm -f /var/palm/ls2/roles/pub/${VALIDATOR}.json
+rm -f /var/palm/ls2/roles/pub/${TRANSPORT}.json
 
-rm -f /var/usr/sbin/${PACKAGE}.transport
-rm -f /var/usr/sbin/${PACKAGE}.validator
+# Cleanup System Services
+rm -f /var/usr/sbin/${VALIDATOR}
+rm -f /var/usr/sbin/${TRANSPORT}
+rm -f /var/usr/lib/libpurple.so
+rm -f /var/palm/system-services/${VALIDATOR}.json
+rm -f /var/palm/system-services/${TRANSPORT}.json
 
-rm -rf ${INSTDIR}
+# Cleanup DB files
+rm -f -r /etc/palm/activities/${APPID}
+rm -f /etc/palm/tempdb/kinds/org.webosinternals.*.purple
+rm -f /etc/palm/db/kinds/org.webosinternals.*.purple
+rm -f /etc/palm/db/kinds/${TRANSPORT}.account
+rm -f /etc/palm/db/permissions/org.webosinternals.*.purple
+rm -f /etc/palm/db/permissions/${TRANSPORT}.account
+
+# Cleanup Accounts
+rm -f -r ${APPS}/usr/palm/accounts/${APPID}.*
+
+# Cleanup Application
+rm -f -r ${APPDIR}
+
+# We are done
+exit 0

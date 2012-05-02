@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.webosinternals.purple.transport
+Exec=/var/usr/sbin/org.webosinternals.purple.transport -c {\"log\":{\"appender\":{\"type\":\"syslog\"},\"levels\":{\"imlibpurple\":\"info\"}}} PalmPre Palm-Pre/1.5

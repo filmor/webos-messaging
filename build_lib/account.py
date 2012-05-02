@@ -50,7 +50,11 @@ class Context(object):
         includes += [filename]
 
         for i in includes:
-            inc_obj = json.load(open(i))
+            try:
+                json_file = open(i)
+            except IOError:
+                json_file = open(path.join(path.dirname(filename), i))
+            inc_obj = json.load(json_file)
 
             self._subs.update(_get_substitutions(inc_obj))
 
@@ -119,4 +123,12 @@ def create_account(name, out, pidgin_path, proto="prototype.json"):
                   substitutions={"pidgin_path": pidgin_path})
     ctx.write(out, indent=4, sort_keys=True)
 
-
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description="Create account files")
+    parser.add_argument('pidgin')
+    parser.add_argument('output')
+    parser.add_argument('filename')
+    parser.add_argument('prototype')
+    args = parser.parse_args()
+    create_account(args.filename, args.output, args.pidgin, args.prototype)

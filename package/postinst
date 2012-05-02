@@ -1,29 +1,35 @@
 #!/bin/sh
 
-PREFIX=org.webosinternals
-PACKAGE=${PREFIX}.purple
+APPID=org.webosinternals.purple
+APPS=/media/cryptofs/apps
+
+# Set Application Install Directory
+APPDIR=${APPS}/usr/palm/applications/${APPID}
 
 VALIDATOR=${PACKAGE}.validator
 TRANSPORT=${PACKAGE}.transport
 
-INSTDIR=/media/cryptofs/apps/usr/palm/applications/${PACKAGE}
+#Kill transport if it's running
+killall -HUP grep ${TRANSPORT} || true
 
-# Is this really necessary?
-killall -HUP grep ${TRANSPORT} || true
-killall -HUP grep ${TRANSPORT} || true
-killall -HUP grep ${TRANSPORT} || true
-killall -HUP grep ${VALIDATOR} || true
-killall -HUP grep ${VALIDATOR} || true
+#Kill validator if it's running
 killall -HUP grep ${VALIDATOR} || true
 
-mkdir -p /var/preferences/${PACKAGE}
+# Copy service files
+cp -r ${APPDIR}/system/var/ /
+cp -r ${APPDIR}/system/etc/ /
 
-cp ${INSTDIR}/system/var/ / -r
-cp ${INSTDIR}/system/etc/ / -r
+mkdir -p /var/preferences/${APPID}
 
+# Set execute on services
 chmod 755 /var/usr/sbin/${VALIDATOR}
 chmod 755 /var/usr/sbin/${TRANSPORT}
 
+# Rescan services
 /usr/bin/ls-control scan-services || true
 
-luna-send -n1 palm://com.palm.applicationManager/rescan {} || true
+# Rescan Luna (Makes plugins show and work correctly)
+luna-send -n 1 palm://com.palm.applicationManager/rescan {} || true
+
+# We are done
+exit 0
