@@ -14,9 +14,9 @@ enyo.kind({
     create: function(params) {
         this.inherited(arguments);
 
-        if (this.params && this.params.initialTemplate)
+        if (params) 
         {
-            this.template = this.params.initialTemplate;
+            this.template = params.initialTemplate || params.template;
             this.prefs = this.template.loc_preferences || {};
         }
         else
@@ -24,6 +24,14 @@ enyo.kind({
             this.template = {"templateId": "org.webosinternals.purple.icq",
                              "loc_prpl": "prpl-icq"};
         }
+        
+        if ("loc_usernameLabel" in this.template)
+            this.$.usernameGroup.caption = this.template.loc_usernameLabel;
+
+        if ("loc_passwordLabel" in this.template)
+            this.$.passwordGroup.caption = this.template.loc_passwordLabel;
+
+        enyo.log(this.template.loc_prpl);
 
         var locale = enyo.g11n && enyo.g11n.toString();
 
@@ -33,10 +41,10 @@ enyo.kind({
             call_params["locale"] = enyo.g11n.toISOString();
 
         this.$.getOptions.call({ params: [ call_params ] });
-
     },
 
     gotOptions: function(inSender, inResponse) {
+        enyo.log(inResponse);
         this.$.options.setOptions(inResponse.options);
         this.render();
     },
@@ -76,14 +84,11 @@ enyo.kind({
     },
 
     validationSuccess: function(inSender, inResponse) {
-        console.log(arguments);
-        console.log("Success!");
-        console.log(inResponse);
         this.$.crossAppResult.sendResult(inResponse);
     },
 
     validationFail: function() {
-        console.log(arguments);
+        enyo.log(arguments);
     },
 
     validationResponse: function() {
@@ -103,13 +108,13 @@ enyo.kind({
     },
 
     popupAction: function(inSender, inResponse) {
-        console.log(inResponse);
+        enyo.log(inResponse);
         if ('answer' in inResponse && 'id' in inResponse) {
             this.$.answerUIEvent.call({params: inResponse});
         }
         else
         {
-            console.log("Something is wrong here", inResponse);
+            enyo.log("Something is wrong here", inResponse);
         }
     },
 
@@ -141,6 +146,7 @@ enyo.kind({
                     components: [
                         {
                             kind: "RowGroup",
+                            name: "usernameGroup",
                             caption: AccountsUtil.LIST_TITLE_USERNAME,
                             className: "accounts-group",
                             components: [
@@ -159,6 +165,7 @@ enyo.kind({
                         },
                         {
                             kind: "RowGroup",
+                            name: "passwordGroup",
                             caption: AccountsUtil.LIST_TITLE_PASSWORD,
                             className: "accounts-group",
                             components: [

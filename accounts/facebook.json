@@ -6,6 +6,8 @@
     "@include": ["jabber.json"],
 
     "@template": {
+        "loc_name": "Facebook",
+        "loc_usernameLabel": "Facebook E-Mail",
         "loc_preferences": {
             "server": "chat.facebook.com",
             "port": 5222

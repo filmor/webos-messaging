@@ -123,7 +123,7 @@ MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, cons
         MojObject reply;
         reply.put("options", options);
 
-        serviceMsg->replySuccess(options);
+        serviceMsg->replySuccess(reply);
     }
     catch (Util::MojoException const& exc)
     {
