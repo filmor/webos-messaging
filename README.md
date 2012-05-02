@@ -16,17 +16,32 @@ For now you'll need the following:
 - The pidgin source package (I guess every version between 2 and 3 should work,
     just use the newest one ;))
 - cyrus-sasl, version `>=2.1` if you want to use jabber
-- ar, tar and bzip2 or gz (should come with every proper unix system)
-
+- ipkg-utils for ipkg-build
 
 Building
 --------
 
 To build the plugins you need to drop the sources (pidgin and cyrus-sasl) into
-the deps/ subdirectory and extract them. After that you can configure the
+the deps/ subdirectory and extract them. You will also have to get some
+libraries, either from your webOS device or using:
+
+    $ ./get_libs.sh
+
+Those libs are only needed to compile the plugins, they won't get deployed. I'm
+actually looking for a better solution here, but that's the way it is for now :)
+
+If you want to get the files from your device just follow this procedure, try to
+compile and get those files from your device that are listed as missing. You
+will definitely need `libstdc++.so` from the device as the one provided with the
+cross-compiler is broken.
+
+After that you can configure the
 package using:
 
     $ ./waf configure
+
+Remember to prepare your environment for cross-compiling, e.g. by setting
+`CHOST=arm-none-linux-gnueabi`.
 
 If you want to use other protocols than msn, icq and jabber (which are default
 for now because I use them ;)), use the protocols-flag:
@@ -37,10 +52,8 @@ After that you can build everything at once (TODO: allow split builds) using:
 
     $ ./waf
 
-Building an ipkg is done via (NOT IMPLEMENTED YET):
+Building an ipkg is done via:
 
-    $ ./waf make_ipkg
+    $ ./make_ipkg.sh
 
-You might need to copy some libraries from your webOS device into
-`build_lib/lib`, especially `libstdc++.so`, since the one deployed in the
-PDK is broken.
+Have fun :)
