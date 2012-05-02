@@ -14,7 +14,7 @@ enyo.kind({
     create: function(params) {
         this.inherited(arguments);
 
-        if (params) 
+        if (params && (params.template || params.initialTemplate))
         {
             this.template = params.initialTemplate || params.template;
             this.prefs = this.template.loc_preferences || {};
@@ -131,13 +131,12 @@ enyo.kind({
                 {
                     kind: "Control",
                     name: "title",
-                    content: "Create Account"
+                    content: $L("Create Account")
                 }
             ]
         },
         { className: "accounts-header-shadow" },
         {
-            name: "validator",
             kind: "Scroller",
             flex: 1,
             components: [
@@ -199,6 +198,20 @@ enyo.kind({
                 }
             ]
         },
+        { className: "accounts-footer-shadow", tabIndex: -1 },
+        {
+            kind: "Toolbar",
+            className: "enyo-toolbar-light",
+            components: [
+                {
+                    name: "doneButton",
+                    kind: "Button",
+                    caption: AccountsUtil.BUTTON_BACK,
+                    onclick: "doBack",
+                    className: "accounts-toolbar-btn"
+                }
+            ]
+        },
         {
             name: "popupGenerator",
             kind: "Purple.PopupGenerator",
@@ -222,6 +235,10 @@ enyo.kind({
         },
         { kind: "CrossAppResult" }
     ],
+
+    doBack: function(sender) {
+        this.$.crossAppResult.sendResult({});
+    },
 
     validateInput: function() {
         this.$.createButton.setDisabled(
