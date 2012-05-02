@@ -145,7 +145,7 @@ static void thread_func(MojServiceMessage* serviceMsg, bool const& running)
     while (running /* && serviceMsg->open()*/)
     {
         Purple::popEvent(elem);
-        serviceMsg->reply(elem);
+        serviceMsg->replySuccess(elem);
     }
 }
 

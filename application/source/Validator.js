@@ -40,7 +40,7 @@ enyo.kind({
         if (enyo.g11n.toISOString)
             call_params["locale"] = enyo.g11n.toISOString();
 
-        this.$.getOptions.call({ params: [ call_params ] });
+        this.$.getOptions.call(call_params);
     },
 
     gotOptions: function(inSender, inResponse) {
@@ -78,9 +78,7 @@ enyo.kind({
         this.$.getUIEvents.call();
 
         // TODO: Allow updating an account
-        this.$.validateAccount.call({
-            params: [params],
-        });
+        this.$.validateAccount.call(params);
     },
 
     validationSuccess: function(inSender, inResponse) {
@@ -110,7 +108,7 @@ enyo.kind({
     popupAction: function(inSender, inResponse) {
         enyo.log(inResponse);
         if ('answer' in inResponse && 'id' in inResponse) {
-            this.$.answerUIEvent.call({params: inResponse});
+            this.$.answerUIEvent.call(inResponse);
         }
         else
         {
