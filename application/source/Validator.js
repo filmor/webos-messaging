@@ -33,7 +33,7 @@ enyo.kind({
 
         enyo.log(this.template);
 
-        var locale = enyo.g11n && enyo.g11n.toString();
+        // var locale = enyo.g11n && enyo.g11n.currentLocale.toISOString();
 
         var call_params = { prpl: this.template.prpl }
 

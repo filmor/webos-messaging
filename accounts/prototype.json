@@ -26,7 +26,7 @@
         },
         "validator": {
             "customUI": {
-                "appId": "$prefix.app.purple",
+                "appId": "$prefix.purple",
                 "name": "validator.html"
             },
             "address": "palm://$validator/checkCredentials"

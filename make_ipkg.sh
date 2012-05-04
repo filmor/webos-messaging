@@ -1,4 +1,5 @@
 #!/bin/sh
+./waf -j3
 ./install.sh || exit 1
 
 pushd build > /dev/null
