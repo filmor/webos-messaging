@@ -30,7 +30,7 @@
 #define IMVersionString  "IMAccountValidator 6-8 1pm starting...."
 
 const IMAccountValidatorHandler::Method IMAccountValidatorHandler::s_methods[] = {
-	{_T("checkCredentials"), (Callback) &IMAccountValidatorHandler::validateAccount},
+	{_T("validateAccount"), (Callback) &IMAccountValidatorHandler::validateAccount},
     {_T("getOptions"), (Callback) &IMAccountValidatorHandler::getOptions},
     {_T("getUIEvents"), (Callback) &IMAccountValidatorHandler::getUIEvents},
     {_T("answerUIEvent"), (Callback) &IMAccountValidatorHandler::answerUIEvent},
@@ -69,7 +69,8 @@ MojErr IMAccountValidatorHandler::init(IMAccountValidatorApp* const app)
 	MojLogTrace(IMAccountValidatorApp::s_log);
 	MojLogInfo(IMAccountValidatorApp::s_log, IMVersionString);
 
-	MojErr err = addMethods(s_methods);
+    // Add the methods publicly
+	MojErr err = addMethods(s_methods, true);
 	MojErrCheck(err);
 
 	// set up signed-on, signed-off callback pointers - see LibpurpleAdapter::assignIMLoginState

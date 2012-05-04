@@ -222,6 +222,8 @@ int main(int argc, char** argv)
 }
 
 IMAccountValidatorApp::IMAccountValidatorApp()
+    // Allow public methods
+    : m_service(true)
 {
 }
 
