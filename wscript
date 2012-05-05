@@ -19,8 +19,8 @@ def configure(conf):
 
     # TODO: Werror for my own code
     # TODO: Remove debugging for release
-    conf.env.append_value("CFLAGS", ["-ggdb", "-Wall"])
-    conf.env.append_value("CXXFLAGS", ["-ggdb", "-Wall"])
+    conf.env.append_value("CFLAGS", ["-g3", "-Wall"])
+    conf.env.append_value("CXXFLAGS", ["-g3", "-Wall"])
     conf.env.append_value("ARCH", "-march=armv7-a")
     conf.env.append_value("LIBPATH", [path.join("..", TOOLDIR, "lib")])
     conf.env.append_value("LINKFLAGS", "-Wl,-rpath=/var/usr/lib")

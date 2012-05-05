@@ -24,6 +24,7 @@ mkdir -p ${PKG_ROOT}/system/var/usr/lib
 for i in ${LIB_FILES}
 do
     cp build/${i} ${PKG_ROOT}/system/var/usr/lib
+    arm-none-linux-gnueabi-strip ${PKG_ROOT}/system/var/usr/lib/${i}
 done
 
 mkdir -p ${IPKG_ROOT}/CONTROL

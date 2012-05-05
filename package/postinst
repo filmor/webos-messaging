@@ -10,10 +10,10 @@ VALIDATOR=${PACKAGE}.validator
 TRANSPORT=${PACKAGE}.transport
 
 #Kill transport if it's running
-killall -HUP grep ${TRANSPORT} || true
+killall ${TRANSPORT} || true
 
 #Kill validator if it's running
-killall -HUP grep ${VALIDATOR} || true
+killall ${VALIDATOR} || true
 
 # Copy service files
 cp -r ${APPDIR}/system/var/ /

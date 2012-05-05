@@ -9,10 +9,10 @@ TRANSPORT=${APPID}.transport
 APPDIR=${APPS}/usr/palm/applications/${APPID}
 
 #Kill transport if it's running
-killall -HUP ${TRANSPORT} || true
+killall ${TRANSPORT} || true
 
 #Kill validator if it's running
-killall -HUP ${VALIDATOR} || true
+killall ${VALIDATOR} || true
 
 # Cleanup roles
 rm -f /var/palm/ls2/roles/prv/${VALIDATOR}.json
