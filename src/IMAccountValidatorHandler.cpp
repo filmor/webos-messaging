@@ -31,16 +31,19 @@
 
 const IMAccountValidatorHandler::Method IMAccountValidatorHandler::s_methods[] = {
 	{_T("validateAccount"), (Callback) &IMAccountValidatorHandler::validateAccount},
+	{_T("getEvent"), (Callback) &IMAccountValidatorHandler::getEvent},
     {_T("getOptions"), (Callback) &IMAccountValidatorHandler::getOptions},
-    {_T("getUIEvents"), (Callback) &IMAccountValidatorHandler::getUIEvents},
-    {_T("answerUIEvent"), (Callback) &IMAccountValidatorHandler::answerUIEvent},
+    {_T("answerEvent"), (Callback) &IMAccountValidatorHandler::answerUIEvent},
 	{_T("logout"), (Callback) &IMAccountValidatorHandler::logout},
 	{NULL, NULL} };
 
 
 IMAccountValidatorHandler::IMAccountValidatorHandler(MojService* service)
 : m_logoutSlot(this, &IMAccountValidatorHandler::logoutResult),
-  m_service(service)
+  m_service(service),
+  running_(false)
+/*  slot_(new MojSlot1<IMAccountValidatorHandler, MojServiceMessage*>
+            (this, cancelEvent))*/
 {
 	MojLogTrace(IMAccountValidatorApp::s_log);
 	m_account = NULL;
@@ -50,11 +53,6 @@ IMAccountValidatorHandler::IMAccountValidatorHandler(MojService* service)
 
 IMAccountValidatorHandler::~IMAccountValidatorHandler()
 {
-    if (thread_)
-    {
-        thread_->interrupt();
-        delete thread_;
-    }
 	MojLogTrace(IMAccountValidatorApp::s_log);
 }
 
@@ -137,39 +135,11 @@ MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, cons
     return MojErrNone;
 }
 
-static void thread_func(MojServiceMessage* serviceMsg, bool const& running)
+MojErr IMAccountValidatorHandler::getEvent(MojServiceMessage* serviceMsg, const MojObject payload)
 {
     MojObject elem;
-
-    // TODO: Check if serviceMsg belongs to an open request
-
-    while (running /* && serviceMsg->open()*/)
-    {
-        Purple::popEvent(elem);
-        serviceMsg->replySuccess(elem);
-    }
-}
-
-MojErr IMAccountValidatorHandler::getUIEvents(MojServiceMessage* serviceMsg, const MojObject payload)
-{
-    // Subscription stuff
-    if (running_)
-    {
-        serviceMsg->replyError(MojErrInvalidArg, "Already getting UI events");
-    }
-    else
-    {
-        // Stop the thread in destructor
-        running_ = true;
-        if (thread_)
-        {
-            thread_->interrupt();
-            delete thread_;
-        }
-
-        thread_ = new boost::thread(thread_func, serviceMsg, running_);
-    }
-
+    Purple::popEvent(elem);
+    serviceMsg->replySuccess(elem);
     return MojErrNone;
 }
 
@@ -204,9 +174,6 @@ MojErr IMAccountValidatorHandler::answerUIEvent(MojServiceMessage* serviceMsg, c
 
 MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg, const MojObject payload)
 {
-	// remember the message so we can reply back in the callback
-	m_serviceMsg = serviceMsg;
-
 	PurpleSavedStatus *status;
 
 	// log the parameters
@@ -230,10 +197,19 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
     {
         MojString error;
         error.assign(exc.what().c_str());
-        returnValidateFailed(MojErrInvalidArg, error);
+        serviceMsg->replyError(MojErrInvalidArg, error);
         m_clientApp->shutdown();
-        return MojErrNone;
+        return MojErrInvalidArg;
     }
+
+    running_ = true;
+    // TODO: Register UI callback
+    // Enable subscription
+//    serviceMessage.notifyCancel(slot_);
+
+    // We should enable answerUIEvent in uiCallback (so we don't need the id
+    // stuff)
+//    Purple::registerUICallback(boost::bind(IMAccountValidatorHandler::uiCallback, this));
 
 	// Input is OK - validate the account
 	MojLogInfo(IMAccountValidatorApp::s_log, "validateAccount: Logging in...username: %s, password: ****removed****", username.data());
@@ -285,7 +261,7 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 		reply.put("username", m_mojoUsername);
 	}
 
-	m_serviceMsg->replySuccess(reply);
+    Purple::pushEvent(reply);
 
 	// Done with password so clear it out
 	m_password.clear();
@@ -312,7 +288,6 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	}
 
 }
-
 /*
  * Return form for AIM:
  * {"errorCode":2,"errorText":"Incorrect password.","returnValue":false}
@@ -320,10 +295,15 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 void IMAccountValidatorHandler::returnValidateFailed(MojErr err, MojString errorText)
 {
 	MojLogError(IMAccountValidatorApp::s_log, "returnValidateFailed error: %d - %s", err, errorText.data());
-	m_serviceMsg->replyError(err, errorText);
 
-	// in the login fail case, libPurple goes back and disconnects the account so we can't delete it here.
-
+    if (running_)
+    {
+        running_ = false;
+        MojObject elem;
+        elem.putInt("errorCode", err);
+        elem.putString("error", errorText);
+        Purple::pushEvent(elem);
+    }
 }
 
 void IMAccountValidatorHandler::returnLogoutSuccess()
@@ -393,8 +373,8 @@ void IMAccountValidatorHandler::accountLoggedIn(PurpleConnection* gc, gpointer a
 	MojLogInfo(IMAccountValidatorApp::s_log, "Account signed in. connection state: %d", gc->state);
 
 	IMAccountValidatorHandler *validator = (IMAccountValidatorHandler*) accountValidator;
-	validator->returnValidateSuccess();
 
+    validator->returnValidateSuccess();
 }
 
 /*

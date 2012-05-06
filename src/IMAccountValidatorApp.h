@@ -25,6 +25,7 @@
 
 #include "core/MojGmainReactor.h"
 #include "core/MojReactorApp.h"
+#include "core/MojMessageDispatcher.h"
 #include "luna/MojLunaService.h"
 #include "IMAccountValidatorHandler.h"
 
@@ -45,6 +46,7 @@ private:
 
 	typedef MojReactorApp<MojGmainReactor> Base;
 
+    MojMessageDispatcher m_dispatcher;
 	MojRefCountedPtr<IMAccountValidatorHandler> m_handler;
 	MojLunaService  m_service;
 };

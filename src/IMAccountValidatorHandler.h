@@ -92,8 +92,6 @@ private:
 
 	// account we are validating
 	PurpleAccount* m_account;
-
-    boost::thread* thread_;
     bool running_;
 
 	// service message to reply back to
@@ -103,7 +101,7 @@ private:
 	MojString m_mojoUsername;
 
     MojErr getOptions(MojServiceMessage* serviceMsg, const MojObject payload);
-    MojErr getUIEvents(MojServiceMessage* serviceMsg, const MojObject payload);
+    MojErr getEvent(MojServiceMessage* serviceMsg, const MojObject payload);
     MojErr answerUIEvent(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr validateAccount(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr logout(MojServiceMessage* serviceMsg, const MojObject payload);

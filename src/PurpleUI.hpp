@@ -10,6 +10,7 @@ namespace Purple
     PurpleRequestUiOps* getRequestOps();
 
     void popEvent(MojObject& var);
+    void pushEvent(MojObject const& var);
     MojErr answerRequest(unsigned id, unsigned answer);
 }
 

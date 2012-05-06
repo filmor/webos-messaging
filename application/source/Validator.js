@@ -69,51 +69,50 @@ enyo.kind({
             config: { prpl: this.template.prpl, preferences: this.prefs }
         }
 
-        this.createComponent({
-            kind: "Purple.AccountService",
-            name: "getUIEvents",
-            onResponse: "uiEvent",
-            subscribe: true
-        });
-        this.$.getUIEvents.call();
-
         // TODO: Allow updating an account
         this.$.validateAccount.call(params);
+        this.$.getEvent.call();
     },
 
-    validationSuccess: function(inSender, inResponse) {
-        this.$.crossAppResult.sendResult(inResponse);
-    },
-
-    validationFail: function() {
-        enyo.log(arguments);
-    },
-
-    validationResponse: function() {
+    eventFail: function(inSender, inResponse) {
+        enyo.log("Fail", inResponse);
+        // TODO: Show error popup
         this.$.username.setDisabled(false);
         this.$.password.setDisabled(false);
         this.$.options.setDisabled(false);
-
-        this.$.getUIEvents.destroy();
 
         this.$.createButton.setCaption(AccountsUtil.BUTTON_SIGN_IN);
         this.$.createButton.setActive(false);
         this.$.createButton.setDisabled(false);
     },
 
-    uiEvent: function(inSender, inResponse) {
-        this.$.popupGenerator.showPopup(inResponse);
+    eventSuccess: function(inSender, inResponse) {
+        enyo.log("Success", inResponse);
+        if ("credentials" in inResponse)
+        {
+            return this.$.crossAppResult.sendResult(inResponse);
+        }
+        else
+        {
+            this.$.popupGenerator.showPopup(inResponse);
+        }
     },
 
     popupAction: function(inSender, inResponse) {
         enyo.log(inResponse);
         if ('answer' in inResponse && 'id' in inResponse) {
-            this.$.answerUIEvent.call(inResponse);
+            this.$.answerEvent.call(inResponse);
         }
         else
         {
             enyo.log("Something is wrong here", inResponse);
+            this.$.getEvent.call();
         }
+    },
+
+    answerResponse: function(inSender, inResponse) {
+        enyo.log("Answer:", inResponse);
+        this.$.getEvent.call();
     },
 
     components: [
@@ -221,15 +220,19 @@ enyo.kind({
             onSuccess: "gotOptions",
         },
         {
-            name: "answerUIEvent",
-            kind: "Purple.AccountService"
+            name: "answerEvent",
+            kind: "Purple.AccountService",
+            onResponse: "answerResponse"
         },
         {
             name: "validateAccount",
+            kind: "Purple.AccountService"
+        },
+        {
+            name: "getEvent",
             kind: "Purple.AccountService",
-            onSuccess: "validationSuccess",
-            onFailure: "validationFail",
-            onResponse: "validationResponse"
+            onSuccess: "eventSuccess",
+            onFailure: "eventFail"
         },
         { kind: "CrossAppResult" }
     ],

@@ -18,8 +18,15 @@ namespace Purple
             void* user_data;
         };
 
-        util::concurrent_queue<MojObject> event_queue;
-        static unsigned id_counter;
+        static GAsyncQueue* event_queue = 0;
+
+        static void init_event_queue()
+        {
+            if (!event_queue)
+                event_queue = g_async_queue_new();
+        }
+
+        static unsigned id_counter = 0;
         std::unordered_map<unsigned, Action> pending_actions;
     }
 
@@ -67,7 +74,7 @@ namespace Purple
         const unsigned id = id_counter++;
         request.putInt("id", id);
 
-        event_queue.push(request);
+        pushEvent(request);
         pending_actions[id] = a;
 
         return 0;
@@ -104,7 +111,7 @@ namespace Purple
 
         message.putString("type", msg_type);
 
-        event_queue.push(message);
+        pushEvent(message);
         return 0;
     }
 
@@ -129,7 +136,25 @@ namespace Purple
 
     void popEvent(MojObject& var)
     {
-        event_queue.pop(var);
+        if (!event_queue)
+            init_event_queue();
+
+        void* ptr = g_async_queue_pop(event_queue);
+        if (ptr)
+        {
+            MojObject* obj = reinterpret_cast<MojObject*> (ptr);
+            var = *obj;
+            delete obj;
+        }
+    }
+
+    void pushEvent(MojObject const& var)
+    {
+        if (!event_queue)
+            init_event_queue();
+
+        MojObject* ptr = new MojObject(var);
+        g_async_queue_push(event_queue, ptr);
     }
 
     static PurpleNotifyUiOps not_ops =
@@ -156,7 +181,7 @@ namespace Purple
         if (pending_actions.count(id) == 0)
             return MojErrInvalidArg;
 
-        if (pending_actions[id].answers.size() >= answer)
+        if (pending_actions[id].answers.size() <= answer)
             return MojErrInvalidArg;
 
         PurpleRequestActionCb callback = pending_actions[id].answers[answer];

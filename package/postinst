@@ -6,8 +6,8 @@ APPS=/media/cryptofs/apps
 # Set Application Install Directory
 APPDIR=${APPS}/usr/palm/applications/${APPID}
 
-VALIDATOR=${PACKAGE}.validator
-TRANSPORT=${PACKAGE}.transport
+VALIDATOR=${APPID}.validator
+TRANSPORT=${APPID}.transport
 
 #Kill transport if it's running
 killall ${TRANSPORT} || true
