@@ -257,9 +257,9 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	reply.put("credentials", common);
 
 	// add normalized username if it changed (ie. if we need to add "@aol.com")
-	if (!m_mojoUsername.empty()) {
-		reply.put("username", m_mojoUsername);
-	}
+	//if (!m_mojoUsername.empty()) {
+	//	reply.put("username", m_mojoUsername);
+	//}
 
     Purple::pushEvent(reply);
 

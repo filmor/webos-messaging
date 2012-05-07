@@ -90,7 +90,10 @@ enyo.kind({
         enyo.log("Success", inResponse);
         if ("credentials" in inResponse)
         {
-            return this.$.crossAppResult.sendResult(inResponse);
+            var result = inResponse;
+            result.username = this.$.username.getValue();
+
+            return this.$.crossAppResult.sendResult(result);
         }
         else
         {
