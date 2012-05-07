@@ -70,7 +70,7 @@ MojErr IMServiceHandler::init()
 	MojLogTrace(IMServiceApp::s_log);
 	MojLogInfo(IMServiceApp::s_log, IMVersionString);
 
-	MojErr err = addMethods(s_methods, true);
+	MojErr err = addMethods(s_methods);
 	MojErrCheck(err);
 
 	// set up the incoming message callback pointer
