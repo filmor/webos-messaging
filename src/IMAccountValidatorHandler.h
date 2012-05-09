@@ -31,8 +31,6 @@
 
 #include "PurpleUI.hpp"
 
-#include <boost/thread.hpp>
-
 // forward declaration to avoid circular #include refs
 class IMAccountValidatorApp;
 

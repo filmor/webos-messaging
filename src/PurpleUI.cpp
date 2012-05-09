@@ -5,7 +5,6 @@
 #include <purple.h>
 
 #include <core/MojObject.h>
-#include <util/concurrent_queue.hpp>
 #include <unordered_map>
 
 namespace Purple

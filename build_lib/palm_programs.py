@@ -37,16 +37,9 @@ def build(bld):
 
     install_path = "${PREFIX}/files/var/usr/sbin"
 
-    bld.objects(target="boost_thread",
-                source=bld.path.ant_glob(join(source_dir, "boost_thread",
-                    "*.cpp")),
-                use="PALM_BUILD",
-                includes="build_lib/include"
-               )
-
     bld.program(target=validator,
                 source=bld.path.ant_glob(av_glob),
-                use="GLIB PALM_BUILD purple palm_common boost_thread",
+                use="GLIB PALM_BUILD purple palm_common",
                 install_path=install_path
                )
 
