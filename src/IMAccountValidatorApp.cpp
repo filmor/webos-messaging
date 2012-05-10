@@ -53,7 +53,7 @@
 #include "PurpleUI.hpp"
 
 const char* const IMAccountValidatorApp::ServiceName = _T("org.webosinternals.purple.validator");
-MojLogger IMAccountValidatorApp::s_log(_T("imaccountvalidator"));
+MojLogger IMAccountValidatorApp::s_log(_T("purple.validator"));
 
 /**
  * The following eventloop functions are used in both pidgin and purple-text. If your
@@ -286,7 +286,7 @@ MojErr IMAccountValidatorApp::initializeLibPurple() {
 	 */
 	signal(SIGCHLD, SIG_IGN);
 
-    purple_util_set_user_dir("/var/preferences/org.webosinternals.purple");
+    purple_util_set_user_dir("/var/preferences/org.webosinternals.purple/validator");
 
 	/* turn on debugging. Turn off to keep the noise to a minimum. */
 	purple_debug_set_enabled(TRUE);

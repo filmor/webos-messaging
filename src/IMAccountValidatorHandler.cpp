@@ -270,7 +270,7 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	// luna-send -n 1 palm://com.palm.imaccountvalidator/logout '{}'
 
 	// log the send
-	MojLogInfo(IMAccountValidatorApp::s_log, "Issuing logout request to imaccountvalidator");
+	MojLogInfo(IMAccountValidatorApp::s_log, "Issuing logout request to org.webosinternals.purple.validator");
 
 	// Get a request object from the service
 	MojRefCountedPtr<MojServiceRequest> req;
@@ -284,7 +284,7 @@ void IMAccountValidatorHandler::returnValidateSuccess()
 	if (err) {
 		MojString error;
 		MojErrToString(err, error);
-		MojLogError(IMAccountValidatorApp::s_log, _T("imaccountvalidator sending request failed. error %d - %s"), err, error.data());
+		MojLogError(IMAccountValidatorApp::s_log, _T("org.webosinternals.purple.validator sending request failed. error %d - %s"), err, error.data());
 	}
 
 }
@@ -330,9 +330,9 @@ MojErr IMAccountValidatorHandler::logoutResult(MojObject& result, MojErr err)
 
 		MojString error;
 		MojErrToString(err, error);
-		MojLogError(IMAccountValidatorApp::s_log, _T("imaccountvalidator logout failed. error %d - %s"), err, error.data());
+		MojLogError(IMAccountValidatorApp::s_log, _T("org.webosinternals.purple.validator logout failed. error %d - %s"), err, error.data());
 	} else {
-		MojLogInfo(IMAccountValidatorApp::s_log, _T("imaccountvalidator logout succeeded."));
+		MojLogInfo(IMAccountValidatorApp::s_log, _T("org.webosinternals.purple.validator logout succeeded."));
 	}
 
 	// exit gracefully in success case

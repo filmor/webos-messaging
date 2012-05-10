@@ -19,7 +19,11 @@ killall ${VALIDATOR} || true
 cp -r ${APPDIR}/system/var/ /
 cp -r ${APPDIR}/system/etc/ /
 
-mkdir -p /var/preferences/${APPID}
+mkdir -p /var/preferences/${APPID}/transport
+mkdir -p /var/preferences/${APPID}/validator
+mkdir -p /var/preferences/${APPID}/certs
+ln -s ../certs /var/preferences/${APPID}/transport
+ln -s ../certs /var/preferences/${APPID}/validator
 
 # Set execute on services
 chmod 755 /var/usr/sbin/${VALIDATOR}

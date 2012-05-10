@@ -434,8 +434,8 @@ void IMServiceHandler::ProcessDone()
 	}
 
 	if (OkToShutdown()) {
-		MojLogNotice(IMServiceApp::s_log, "ProcessDone - shutting down in %llu seconds", SHUTDOWN_DELAY_SECONDS);
-		m_shutdownCallbackId = g_timeout_add_seconds(SHUTDOWN_DELAY_SECONDS, &ShutdownCallback, this);
+/*		MojLogNotice(IMServiceApp::s_log, "ProcessDone - shutting down in %llu seconds", SHUTDOWN_DELAY_SECONDS);
+		m_shutdownCallbackId = g_timeout_add_seconds(SHUTDOWN_DELAY_SECONDS, &ShutdownCallback, this);*/
 	} else {
 		MojLogInfo(IMServiceApp::s_log, "ProcessDone - %llu processes still active, accounts still online", m_activeProcesses);
 	}

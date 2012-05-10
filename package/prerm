@@ -28,8 +28,11 @@ rm -f /var/usr/lib/libpurple.so
 rm -f /var/palm/system-services/${VALIDATOR}.json
 rm -f /var/palm/system-services/${TRANSPORT}.json
 
+# Cleanup preferences
+rm -f -r /var/preferences/${APPID}
+
 # Cleanup DB files
-rm -f -r /etc/palm/activities/${APPID}
+rm -f -r /etc/palm/activities/${TRANSPORT}
 rm -f /etc/palm/tempdb/kinds/org.webosinternals.*.purple
 rm -f /etc/palm/db/kinds/org.webosinternals.*.purple
 rm -f /etc/palm/db/kinds/${TRANSPORT}.account

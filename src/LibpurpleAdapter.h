@@ -32,7 +32,7 @@
 #include "PalmImCommon.h"
 #include "core/MojService.h"
 
-#define CUSTOM_USER_DIRECTORY  "/var/preferences/org.webosinternals.purple"
+#define CUSTOM_USER_DIRECTORY  "/var/preferences/org.webosinternals.purple/transport"
 #define CUSTOM_PLUGIN_PATH     "/media/cryptofs/apps/usr/palm/applications/org.webosinternals.purple/plugins"
 #define PLUGIN_SAVE_PREF       "/purple/nullclient/plugins/saved"
 #define UI_ID                  "adapter"
