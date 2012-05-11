@@ -27,7 +27,7 @@ namespace Util
 
     MojObject getProtocolOptions(MojString prpl);
     // Expects Mojo Username (i.e. user@example.com)
-    PurpleAccount* createPurpleAccount(MojString username, MojObject config);
+    PurpleAccount* createPurpleAccount(MojString username, MojString prpl, MojObject config);
 
     // If there is 
 	std::string getMojoUsername(std::string username, std::string const& prpl);

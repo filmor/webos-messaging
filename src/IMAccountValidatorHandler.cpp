@@ -181,17 +181,17 @@ MojErr IMAccountValidatorHandler::validateAccount(MojServiceMessage* serviceMsg,
 
 	// get the username, password, and config from the input payload
 	MojString username;
+    MojString prpl;
     MojObject config;
 
     try
     {
         username = Util::get(payload, "username");
         m_password = Util::get(payload, "password");
-        MojString templateId = Util::get(payload, "templateId");
+        prpl = Util::get(payload, "prpl");
 
         payload.get("config", config);
-
-        m_account = Util::createPurpleAccount(username, config);
+        m_account = Util::createPurpleAccount(username, prpl, config);
     }
     catch(Util::MojoException const& exc)
     {

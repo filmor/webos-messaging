@@ -66,8 +66,9 @@ enyo.kind({
             username: this.$.username.getValue(),
             password: this.$.password.getValue(),
             templateId: this.template.templateId,
-            config: { prpl: this.template.prpl, preferences: this.prefs }
-        }
+            prpl: this.template.prpl,
+            config: this.prefs
+        };
 
         // TODO: Allow updating an account
         this.$.validateAccount.call(params);

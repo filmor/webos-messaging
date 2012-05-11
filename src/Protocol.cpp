@@ -95,14 +95,9 @@ namespace Util
         return result;
     }
 
-    PurpleAccount* createPurpleAccount(MojString username, MojObject config)
+    PurpleAccount* createPurpleAccount(MojString username, MojString prpl, MojObject prefs)
     {
-        MojString prpl = Util::get(config, "prpl");
         PurplePluginProtocolInfo* info = getProtocolInfo(prpl.data());
-
-        // TODO: Error handling: What happens, when "preferences" is undefined?
-        MojObject prefs;
-        config.get("preferences", prefs);
 
         // TODO: Strip off possible junk here!
         //       The Username Split API might be useful, as soon as I have
@@ -115,7 +110,7 @@ namespace Util
 
             const char* name = purple_account_option_get_setting(option);
 
-            if (!config.contains(name))
+            if (!prefs.contains(name))
                 continue;
 
             switch(purple_account_option_get_type(option))
