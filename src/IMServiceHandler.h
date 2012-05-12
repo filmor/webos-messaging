@@ -71,6 +71,11 @@ private:
 	// Database client used to make any requests (put, watch, find, etc.) to Mojo DB
 	MojDbServiceClient m_dbClient;
 
+    MojDbClient::Signal::Slot<IMServiceHandler> m_deleteConfigSlot;
+    MojErr deleteConfigResult(MojObject& payload, MojErr err);
+    MojDbClient::Signal::Slot<IMServiceHandler> m_putConfigSlot;
+    MojErr putConfigResult(MojObject& payload, MojErr err);
+
 	IMLoginState* m_loginState;
 	ConnectionState m_connectionState;
 	DisplayController* m_displayController;
@@ -81,8 +86,10 @@ private:
 	// shutdown timer active
 	MojInt64 m_shutdownCallbackId;
 
-	MojErr onEnabled(MojServiceMessage* serviceMsg, const MojObject payload);
 
+	MojErr onEnabled(MojServiceMessage* serviceMsg, const MojObject payload);
+	MojErr onCreate(MojServiceMessage* serviceMsg, const MojObject payload);
+	MojErr onDelete(MojServiceMessage* serviceMsg, const MojObject payload);
 	MojErr handleLoginStateChange(MojServiceMessage* msg, const MojObject payload);
 	MojErr loginForTesting(MojServiceMessage* msg, const MojObject payload);
 

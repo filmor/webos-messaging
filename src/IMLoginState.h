@@ -45,6 +45,8 @@ public:
 	MojString getUsername() const { return m_username; }
 	MojString getServiceName() const { return m_serviceName; }
     MojString getCapabilityId() const { return m_capabilityId; }
+    MojString getPrpl() const { return m_prpl; }
+    MojObject getConfig() const { return m_config; }
 	const MojUInt32 getAvailability() const { return m_availability; }
 	MojString getCustomMessage() const { return m_customMessage; }
 	void setState(const MojString& state) { m_state = state; }
@@ -71,6 +73,8 @@ private:
 	MojString m_username;
 	MojString m_serviceName;
     MojString m_capabilityId;
+    MojObject m_config;
+    MojString m_prpl;
 	MojUInt32 m_availability;
 	MojString m_state;
 	MojString m_customMessage;
@@ -177,9 +181,6 @@ private:
 
 	MojDbClient::Signal::Slot<IMLoginStateHandler> m_activityCompleteSlot;
 	MojErr activityCompleteResult(MojObject& result, MojErr err);
-
-	MojDbClient::Signal::Slot<IMLoginStateHandler> m_setWatchSlot;
-	MojErr setWatchResult(MojObject& result, MojErr err);
 
 	MojDbClient::Signal::Slot<IMLoginStateHandler> m_loginStateQuerySlot;
 	MojErr loginStateQueryResult(MojObject& result, MojErr err);

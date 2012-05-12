@@ -36,6 +36,8 @@
 
 const IMServiceHandler::Method IMServiceHandler::s_methods[] = {
 	{_T("onEnabled"), (Callback) &IMServiceHandler::onEnabled},
+    {_T("onCreate"), (Callback) &IMServiceHandler::onCreate},
+    {_T("onDelete"), (Callback) &IMServiceHandler::onDelete},
 	{_T("loginStateChanged"), (Callback) &IMServiceHandler::handleLoginStateChange},
 	{_T("sendIM"), (Callback) &IMServiceHandler::IMSend}, // callback for activity manager
 	{_T("sendCommand"), (Callback) &IMServiceHandler::IMSendCmd}, // callback for activity manager
@@ -44,6 +46,8 @@ const IMServiceHandler::Method IMServiceHandler::s_methods[] = {
 IMServiceHandler::IMServiceHandler(MojService* service)
 : m_service(service),
   m_dbClient(service),
+  m_deleteConfigSlot(this, &IMServiceHandler::deleteConfigResult),
+  m_putConfigSlot(this, &IMServiceHandler::putConfigResult),
   m_connectionState(service)
 {
 	MojLogTrace(IMServiceApp::s_log);
@@ -83,6 +87,52 @@ MojErr IMServiceHandler::init()
 	return MojErrNone;
 }
 
+MojErr IMServiceHandler::onCreate(MojServiceMessage* serviceMsg, const MojObject payload)
+{
+    MojString accountId;
+    MojErr err = payload.getRequired("accountId", accountId);
+    if (err != MojErrNone || accountId.empty()) {
+		MojLogError(IMServiceApp::s_log, _T("IMServiceHandler::onCreate accountId empty or error %d"), err);
+        serviceMsg->replyError(err);
+		return err;
+	}
+
+    MojObject config;
+    payload.get("config", config);
+
+    MojObject res;
+    res.putString("accountId", accountId);
+    res.put("config", config);
+    res.putString("_kind", "org.webosinternals.purple.config:1");
+
+    // Write config to db:
+    m_dbClient.put(m_putConfigSlot, res);
+
+    serviceMsg->replySuccess();
+    return MojErrNone;
+}
+
+MojErr IMServiceHandler::onDelete(MojServiceMessage* serviceMsg, const MojObject payload)
+{
+    MojString accountId;
+    bool found = false;
+    payload.get("accountId", accountId, found);
+    if (!found || accountId.empty()) {
+        MojErr err = MojErrInvalidArg;
+		MojLogError(IMServiceApp::s_log, _T("IMServiceHandler::onDelete accountId empty or error %d"), err);
+        serviceMsg->replyError(err);
+		return err;
+	}
+
+    MojDbQuery query;
+    query.from("org.webosinternals.purple.config:1");
+    query.where("accountId", MojDbQuery::OpEq, accountId);
+
+    m_dbClient.del(m_deleteConfigSlot, query);
+
+    serviceMsg->replySuccess();
+    return MojErrNone;
+}
 
 MojErr IMServiceHandler::onEnabled(MojServiceMessage* serviceMsg, const MojObject payload)
 {
@@ -100,6 +150,16 @@ MojErr IMServiceHandler::onEnabled(MojServiceMessage* serviceMsg, const MojObjec
 		serviceMsg->replyError(err);
 	}
 	return MojErrNone;
+}
+
+MojErr IMServiceHandler::deleteConfigResult(MojObject& payload, MojErr err)
+{
+    return err;
+}
+
+MojErr IMServiceHandler::putConfigResult(MojObject& payload, MojErr err)
+{
+    return err;
 }
 
 /**

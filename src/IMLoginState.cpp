@@ -187,7 +187,6 @@ void IMLoginState::putLoginStateData(const MojString& key, LoginStateData& newSt
 IMLoginStateHandler::IMLoginStateHandler(MojService* service, MojInt64 loginStateRevision, IMLoginState* loginStateController)
 : m_activityAdoptSlot(this, &IMLoginStateHandler::activityAdoptResult),
   m_activityCompleteSlot(this, &IMLoginStateHandler::activityCompleteResult),
-  m_setWatchSlot(this, &IMLoginStateHandler::setWatchResult),
   m_loginStateQuerySlot(this, &IMLoginStateHandler::loginStateQueryResult),
   m_getCredentialsSlot(this, &IMLoginStateHandler::getCredentialsResult),
   m_updateLoginStateSlot(this, &IMLoginStateHandler::updateLoginStateResult),
@@ -355,12 +354,6 @@ MojErr IMLoginStateHandler::activityCompleteResult(MojObject& payload, MojErr re
 	return MojErrNone;
 }
 
-MojErr IMLoginStateHandler::setWatchResult(MojObject& payload, MojErr resultErr)
-{
-	//TODO: log if there are errors
-	return MojErrNone;
-}
-
 MojErr IMLoginStateHandler::loginStateQueryResult(MojObject& payload, MojErr resultErr)
 {
 	MojLogTrace(IMServiceApp::s_log);
@@ -480,11 +473,6 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 			MojLogError(IMServiceApp::s_log, _T("Password is empty. I think this is not ok."));
 		}
 
-        MojObject config;
-        payload.get("config", config);
-
-        MojString prpl = Util::get(config, "prpl");
-
 		MojString serviceName = m_workingLoginState.getServiceName();
 		MojString username = m_workingLoginState.getUsername();
 
@@ -493,19 +481,21 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 		// We're about to log in, so set the state to "logging in"
 		updateLoginStateNoResponse(serviceName, username, LOGIN_STATE_LOGGING_ON, localIpAddress.data());
 
-		loginParams.password = password.data();
-		loginParams.accountId = m_workingLoginState.getAccountId().data();
-		loginParams.username = username.data();
-		loginParams.serviceName = serviceName.data();
+		loginParams.password = password;
+		loginParams.accountId = m_workingLoginState.getAccountId();
+		loginParams.username = username;
+		loginParams.serviceName = serviceName;
 		loginParams.availability = m_workingLoginState.getAvailability();
 		loginParams.customMessage = m_workingLoginState.getCustomMessage();
-		loginParams.connectionType = connectionType.data();
-		loginParams.localIpAddress = localIpAddress.data();
+		loginParams.connectionType = connectionType;
+		loginParams.localIpAddress = localIpAddress;
+        loginParams.config = m_workingLoginState.getConfig();
+        loginParams.prpl = m_workingLoginState.getPrpl();
 
 		// Login may be asynchronous with the result callback in loginResult().
 		// Also deal with immediate results
 		LibpurpleAdapter::LoginResult result;
-		result = LibpurpleAdapter::login(&loginParams, m_loginStateController, config);
+		result = LibpurpleAdapter::login(loginParams, m_loginStateController);
 		if (result == LibpurpleAdapter::FAILED)
 		{
 			handleBadCredentials(serviceName, username, ERROR_GENERIC_ERROR);
@@ -1194,6 +1184,8 @@ MojErr LoginStateData::assignFromDbRecord(MojObject& record)
 		return err;
 	}
 
+    record.get("config", m_config);
+    err = record.getRequired("prpl", m_prpl);
 	record.get("username", m_username, found);
 	record.get("accountId", m_accountId, found);
 	record.get("serviceName", m_serviceName, found);

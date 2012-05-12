@@ -50,6 +50,8 @@
                 "icon": {"splitter": "$icon32"},
                 "implementation": "palm://$transport/",
                 "onEnabled": "palm://$transport/onEnabled",
+                "onCreate": "palm://$transport/onCreate",
+                "onDelete": "palm://$transport/onDelete",
                 "readOnlyData": true,
                 "serviceName":"$servicename",
                 "dbkinds": {

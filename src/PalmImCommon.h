@@ -32,18 +32,22 @@
 #define LOGIN_STATE_ONLINE   			"online"
 #define LOGIN_STATE_LOGGING_OFF  		"logging-off"
 
+#include <core/MojString.h>
+#include <core/MojObject.h>
 
-typedef struct
+struct LoginParams
 {
-	const char *accountId;
-	const char *serviceName;
-	const char *username;
-	const char *password;
+	MojString accountId;
+	MojString serviceName;
+	MojString username;
+    MojString password;
 	int availability;
-	const char *customMessage;
-	const char *localIpAddress;
-	const char *connectionType;
-} LoginParams;
+	MojString customMessage;
+	MojString localIpAddress;
+	MojString connectionType;
+    MojString prpl;
+    MojObject config;
+};
 
 
 class PalmAvailability {

@@ -1182,7 +1182,7 @@ static void initializeLibpurple()
 /*
  * Service methods
  */
-LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, LoginCallbackInterface* loginState, MojObject config)
+LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams const& params, LoginCallbackInterface* loginState)
 {
 	LoginResult result = OK;
 
@@ -1194,19 +1194,13 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 
 	PurpleAccount* alreadyActiveAccount = NULL;
 
-	if (!params || !params->serviceName || params->serviceName[0] == 0 || !params->username || params->username[0] == 0)
+	if (params.serviceName.empty() || params.username.empty())
 	{
 		MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login with empty username or serviceName"));
 		return INVALID_CREDENTIALS;
 	}
 
-	if (!params->localIpAddress)
-		params->localIpAddress = "";
-	
-	if (!params->connectionType)
-		params->connectionType = "";
-
-	MojLogInfo(IMServiceApp::s_log, _T("Parameters: accountId %s, servicename %s, connectionType %s"), params->accountId, params->serviceName, params->connectionType);
+	MojLogInfo(IMServiceApp::s_log, _T("Parameters: accountId %s, servicename %s, connectionType %s"), params.accountId.data(), params.serviceName.data(), params.connectionType.data());
 
 	if (s_libpurpleInitialized == FALSE)
 	{
@@ -1214,10 +1208,10 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	}
 
 	/* libpurple variables */
-	std::string const& accountKey = getAccountKey(params->username, params->serviceName);
+	std::string const& accountKey = getAccountKey(params.username.data(), params.serviceName.data());
 
 	// If this account id isn't yet stored, then keep track of it now.
-	s_AccountIdsData[accountKey] = params->accountId;
+	s_AccountIdsData[accountKey] = params.accountId.data();
 
 	/*
 	 * Let's check to see if we're already logged in to this account or that we're already in the process of logging in 
@@ -1244,7 +1238,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		 * (i.e. it's pending; waiting for server response)
 		 */
 		std::string const& accountBoundToIpAddress = s_ipAddressesBoundTo[accountKey];
-		if (params->localIpAddress == accountBoundToIpAddress)
+		if (params.localIpAddress.data() == accountBoundToIpAddress)
 		{
 			/*
 			 * We're using the right interface for this account
@@ -1289,9 +1283,9 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 	 */
 
 	// TODO this currently ignores authentication token, but should check it as well when support for auth token is added
-	if (strcmp(params->password, "") == 0)
+	if (params.password.empty())
 	{
-		MojLogError(IMServiceApp::s_log, _T("Error: null or empty password trying to log in to servicename %s"), params->serviceName);
+		MojLogError(IMServiceApp::s_log, _T("Error: null or empty password trying to log in to servicename %s"), params.serviceName.data());
 	    return INVALID_CREDENTIALS;
 	}
 	else
@@ -1299,10 +1293,10 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/* save the local IP address that we need to use */
 		// TODO - move this to #ifdef. If you are running imlibpurpletransport on desktop, but tethered to device, params->localIpAddress needs to be set to
 		// NULL otherwise login will fail...
-		if (strcmp(params->localIpAddress, "") != 0)
+		if (!params.localIpAddress.empty())
 		{
 			purple_prefs_remove("/purple/network/preferred_local_ip_address");
-			purple_prefs_add_string("/purple/network/preferred_local_ip_address", params->localIpAddress);
+			purple_prefs_add_string("/purple/network/preferred_local_ip_address", params.localIpAddress.data());
 		}
 		else
 		{
@@ -1316,10 +1310,7 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		}
 
 		/* save the local IP address that we need to use */
-		if (params->connectionType != NULL && params->connectionType[0] != 0)
-		{
-			s_connectionTypeData[accountKey] = params->connectionType;
-		}
+		s_connectionTypeData[accountKey] = params.connectionType;
 
 		/*
 		 * If we've already logged in to this account before then re-use the old PurpleAccount struct
@@ -1328,11 +1319,8 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 			account = s_offlineAccountData[accountKey];
 		else
 		{
-            MojString username;
-            username.append(params->username);
-
 			/* Create the account */
-			account = Util::createPurpleAccount(username, config);
+			account = Util::createPurpleAccount(params.username, params.prpl, params.config);
 			if (!account)
 			{
 				MojLogError(IMServiceApp::s_log, _T("LibpurpleAdapter::login failed to create new Purple account"));
@@ -1341,14 +1329,14 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 
 			AccountMetaData* amd = new AccountMetaData;
 			amd->account_key = strndup(accountKey.c_str(), accountKey.size());
-			amd->servicename = params->serviceName;
+			amd->servicename = params.serviceName.data();
 
 			account->ui_data = (void*)amd;
 		}
 
 		MojLogInfo(IMServiceApp::s_log, _T("Logging in..."));
 
-		purple_account_set_password(account, params->password);
+		purple_account_set_password(account, params.password.data());
 	}
 
 	if (result == OK)
@@ -1356,9 +1344,8 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		/* mark the account as pending */
 		s_pendingAccountData[accountKey] = account;
 
-		if (params->localIpAddress != NULL && params->localIpAddress[0] != 0)
-			/* keep track of the local IP address that we bound to when logging in to this account */
-			s_ipAddressesBoundTo[accountKey] = params->localIpAddress;
+        /* keep track of the local IP address that we bound to when logging in to this account */
+        s_ipAddressesBoundTo[accountKey] = params.localIpAddress;
 
 		/* It's necessary to enable the account first. */
 		purple_account_set_enabled(account, UI_ID, TRUE);
@@ -1371,11 +1358,11 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams* params, Login
 		guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, new std::string(accountKey));
 		s_accountLoginTimers[accountKey] = timerHandle;
 
-		PurpleStatusPrimitive prim = getPurpleAvailabilityFromPalmAvailability(params->availability);
+		PurpleStatusPrimitive prim = getPurpleAvailabilityFromPalmAvailability(params.availability);
 		PurpleSavedStatus* savedStatus = purple_savedstatus_new(NULL, prim);
-		if (params->customMessage && params->customMessage[0])
+		if (!params.customMessage.empty())
 		{
-			purple_savedstatus_set_message(savedStatus, params->customMessage);
+			purple_savedstatus_set_message(savedStatus, params.customMessage);
 		}
 		purple_savedstatus_activate_for_account(savedStatus, account);
 	}

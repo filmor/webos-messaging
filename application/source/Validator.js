@@ -93,6 +93,7 @@ enyo.kind({
         {
             var result = inResponse;
             result.username = this.$.username.getValue();
+            result.config = this.prefs;
 
             return this.$.crossAppResult.sendResult(result);
         }
@@ -238,7 +239,7 @@ enyo.kind({
             onSuccess: "eventSuccess",
             onFailure: "eventFail"
         },
-        { kind: "CrossAppResult" }
+        { kind: "Purple.CrossAppResult", name: "crossAppResult" }
     ],
 
     doBack: function(sender) {

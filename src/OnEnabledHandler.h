@@ -43,6 +43,9 @@ private:
 	MojDbClient::Signal::Slot<OnEnabledHandler> m_getAccountInfoSlot;
 	MojErr getAccountInfoResult(MojObject& payload, MojErr err);
 
+    MojDbClient::Signal::Slot<OnEnabledHandler> m_getAccountConfigSlot;
+    MojErr getAccountConfigResult(MojObject& payload, MojErr err);
+
 	MojDbClient::Signal::Slot<OnEnabledHandler> m_findImLoginStateSlot;
 	MojErr findImLoginStateResult(MojObject& payload, MojErr err);
 
@@ -76,7 +79,8 @@ private:
 	MojString m_accountId;
 	MojString m_username;
 	MojString m_serviceName;
-
+    MojString m_prpl;
+    MojObject m_config;
 
 	// listener to tell when we are ready to shutdown
 	IMServiceApp::Listener* m_listener;
