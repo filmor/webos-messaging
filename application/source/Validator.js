@@ -14,17 +14,8 @@ enyo.kind({
     create: function(params) {
         this.inherited(arguments);
 
-        if (params && (params.template || params.initialTemplate))
-        {
-            this.template = params.initialTemplate || params.template;
-            this.prefs = this.template.preferences || {};
-        }
-        else
-        {
-            this.template = {"templateId": "org.webosinternals.purple.icq",
-                             "prpl": "prpl-icq",
-                             "loc_usernameLabel": "ICQ Number"};
-        }
+        this.template = params.initialTemplate || params.template;
+        this.prefs = this.template.preferences || {};
         
         if (this.template.loc_usernameLabel)
             this.$.usernameGroup.setCaption(this.template.loc_usernameLabel);

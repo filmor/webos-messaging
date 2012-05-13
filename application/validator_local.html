@@ -7,7 +7,19 @@
 </head>
 <body>
 <script type="text/javascript">
-    new Purple.Validator(enyo.windowParams).renderInto(document.body);
+    var params = {
+        template: {
+            templateId: "org.webosinternals.purple.icq",
+            prpl: "prpl-icq",
+            loc_usernameLabel: "ICQ Number",
+            preferences: {
+                bla: "palim"
+            }
+        },
+        locale: "de_DE"
+    };
+
+    new Purple.Validator(params).renderInto(document.body);
 </script>
 </body>
 </html>
