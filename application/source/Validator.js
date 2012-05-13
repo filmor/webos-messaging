@@ -27,16 +27,19 @@ enyo.kind({
         // var locale = enyo.g11n && enyo.g11n.currentLocale.toISOString();
 
         var call_params = { prpl: this.template.prpl }
-
-        if (enyo.g11n.toISOString)
-            call_params["locale"] = enyo.g11n.toISOString();
+    
+        call_params["locale"] = params.locale || enyo.g11n.currentLocale.toISOString();
 
         this.$.getOptions.call(call_params);
     },
 
     gotOptions: function(inSender, inResponse) {
-        enyo.log(inResponse);
-        this.$.options.setOptions(inResponse.options);
+        var stripped_options = {};
+        for (var name in inResponse.options)
+            if (!(name in this.prefs))
+                stripped_options[name] = inResponse.options[name];
+
+        this.$.options.setOptions(stripped_options);
         this.render();
     },
 
