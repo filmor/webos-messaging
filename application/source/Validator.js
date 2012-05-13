@@ -82,6 +82,14 @@ enyo.kind({
         this.$.password.setDisabled(false);
         this.$.options.setDisabled(false);
 
+        if (inResponse.errorCode) {
+            this.$.errorMessage.setContent(AccountError.getErrorText(inResponse.errorCode));
+            this.$.errorBox.show();
+        }
+        else {
+            this.$.errorBox.hide();
+        }
+
         this.$.createButton.setCaption(AccountsUtil.BUTTON_SIGN_IN);
         this.$.createButton.setActive(false);
         this.$.createButton.setDisabled(false);
@@ -186,6 +194,24 @@ enyo.kind({
                             kind: "Purple.Options",
                             name: "options",
                             onPreferenceChanged: "prefChanged"
+                        },
+                        {
+                            name: "errorBox",
+                            kind: "enyo.HFlexBox",
+                            className: "error-box",
+                            align: "center",
+                            showing: false,
+                            components: [
+                                {
+                                    kind: "Image",
+                                    src: AccountsUtil.libPath + "images/header-warning-icon.png"
+                                },
+                                {
+                                    name: "errorMessage",
+                                    className: "enyo-text-error",
+                                    flex: 1
+                                }
+                            ]
                         },
                         {
                             name: "createButton",
