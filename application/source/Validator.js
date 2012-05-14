@@ -28,7 +28,7 @@ enyo.kind({
 
         var call_params = { prpl: this.template.prpl }
     
-        call_params["locale"] = params.locale || enyo.g11n.currentLocale.toISOString();
+        call_params["locale"] = params.locale || enyo.g11n.currentLocale().toISOString();
 
         this.$.getOptions.call(call_params);
     },

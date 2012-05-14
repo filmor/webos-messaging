@@ -16,6 +16,7 @@
 
     "@template": {
         "loc_name": "Google Talk",
+        "loc_usernameLabel": "Google ID",
         "preferences": {
             "server": "talk.google.com",
             "port": 5222

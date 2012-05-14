@@ -60,7 +60,7 @@ def configure(conf):
     conf.env.append_value("CFLAGS_PURPLE_BUILD", ["-fPIC"])
 
     headers = ["arpa/nameser_compat", "fcntl", "sys/time",
-               "unistd", "locale", "signal", "stdint", "regex"]
+               "unistd", "locale", "libintl", "signal", "stdint", "regex"]
 
     for i in headers:
         conf.check_cc(header_name=i + ".h", mandatory=False,
@@ -97,8 +97,11 @@ def configure(conf):
             join(conf.env.APP_PATH, "share", "ca-certs")
     )
 
-    conf.define("HAVE_ENABLE_NLS", 1, quote=False)
+    conf.define("ENABLE_NLS", 1, quote=False)
     conf.define("PACKAGE", "libpurple")
+    conf.define("LOCALEDIR",
+                join(conf.env.APP_PATH, "share", "locale")
+    )
 
     proto_extern = "\\\n".join(
                         "extern gboolean purple_init_%s_plugin();" %

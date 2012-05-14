@@ -199,7 +199,6 @@ static PurpleCoreUiOps null_core_uiops =
 
 int main(int argc, char** argv)
 {
-    setenv("LOCPATH", APP_PATH "/share/locale", 1);
     purple_debug_set_enabled(TRUE);
 
     GList* list = purple_plugins_get_all();

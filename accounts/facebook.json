@@ -12,7 +12,7 @@
     },
 
     "@template": {
-        "loc_name": "Facebook",
+        "loc_name": "Facebook Chat",
         "loc_usernameLabel": "Facebook E-Mail",
         "preferences": {
             "server": "chat.facebook.com",
