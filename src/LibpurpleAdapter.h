@@ -33,7 +33,7 @@
 #include "core/MojService.h"
 
 #define CUSTOM_USER_DIRECTORY  "/var/preferences/org.webosinternals.purple/transport"
-#define CUSTOM_PLUGIN_PATH     "/media/cryptofs/apps/usr/palm/applications/org.webosinternals.purple/plugins"
+#define CUSTOM_PLUGIN_PATH     APP_PATH "/plugins"
 #define PLUGIN_SAVE_PREF       "/purple/nullclient/plugins/saved"
 #define UI_ID                  "adapter"
 

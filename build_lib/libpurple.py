@@ -22,12 +22,11 @@ def build_protocol(ctx, name, path=None, exclude=[], use=[]):
     ctx.objects(target="protocol_%s" % name,
                 source=ant_glob(ctx, root_path, "**", "*.c", exclude=exclude),
                 includes=root_path,
-                defines=["PACKAGE=\"%s\"" % (path if path else name)],
                 use=" ".join(["GLIB XML PURPLE_BUILD"] + use)
                )
 
 def configure(conf):
-    conf.load('compiler_c')
+    conf.load('compiler_c intltool')
 
     path, version = get_path_and_version()
     conf.env.PURPLE_PATH = path
@@ -38,7 +37,6 @@ def configure(conf):
         # core-ssl to be found (see ssl.c:probe_ssl_plugins)
         conf.env.PURPLE_PLUGINS += ["ssl-" + conf.env.PURPLE_SSL, "ssl"]
 
-        # TODO: conf.define("SSL_CERTIFICATE_DIR")
         conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
 
     plugins = conf.env.PURPLE_PLUGINS
@@ -94,6 +92,13 @@ def configure(conf):
     conf.define("HAVE_CYRUS_SASL", 1, quote=False)
     conf.define("HAVE_GNUTLS_PRIORITY_FUNCS", 1)
     conf.define("_GNU_SOURCE", 1, quote=False)
+
+    conf.define("SSL_CERTIFICATES_DIR",
+            join(conf.env.APP_PATH, "share", "ca-certs")
+    )
+
+    conf.define("HAVE_ENABLE_NLS", 1, quote=False)
+    conf.define("PACKAGE", "libpurple")
 
     proto_extern = "\\\n".join(
                         "extern gboolean purple_init_%s_plugin();" %
@@ -164,4 +169,3 @@ def build(bld):
                 includes=path,
                 use=use + ["plugins"],
              )
-

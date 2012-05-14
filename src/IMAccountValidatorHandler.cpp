@@ -117,6 +117,12 @@ MojErr IMAccountValidatorHandler::getOptions(MojServiceMessage* serviceMsg, cons
     try
     {
         MojString prpl = Util::get(payload, "prpl");
+
+        if (payload.contains("locale"))
+        {
+            MojString locale = Util::get(payload, "locale");
+            setlocale(LC_ALL, locale.data());
+        }
  
         MojObject options = Util::getProtocolOptions(prpl);
         MojObject reply;

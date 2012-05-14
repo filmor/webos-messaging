@@ -33,14 +33,27 @@ cp package/* ${IPKG_ROOT}/CONTROL
 # Accounts
 PROTOCOLS="facebook icq msn google_talk jabber"
 PIDGIN_DIRS=(deps/pidgin-*)
+PIDGIN_DIR=${PIDGIN_DIRS[0]}
 
 for i in ${PROTOCOLS}
 do
-    build_lib/account.py ${PIDGIN_DIRS[0]} \
+    build_lib/account.py ${PIDGIN_DIR} \
         ${IPKG_ROOT}/usr/palm/accounts \
         accounts/${i}.json \
         accounts/prototype.json || exit -1
 done
+
+# Locales
+NLS_MODULE=libpurple # Defined as PACKAGE in libpurple.py
+for i in de en fr it es
+do
+    OUT_PATH=${PKG_ROOT}/share/locale/${i}/LC_MESSAGES
+    mkdir -p ${OUT_PATH}
+    msgfmt ${PIDGIN_DIR}/po/${i}.po -o ${OUT_PATH}/${NLS_MODULE}.mo
+done
+
+# CA certs
+cp -r ${PIDGIN_DIR}/share/ca-certs ${PKG_ROOT}/share
 
 # Application
 cp -r application/* ${PKG_ROOT}

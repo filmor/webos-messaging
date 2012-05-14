@@ -44,6 +44,9 @@ def configure(conf):
     conf.env.PURPLE_PLUGINS = plugins
     conf.env.PURPLE_SSL = "gnutls"
 
+    conf.env.APP_PATH = \
+    "/media/cryptofs/apps/usr/palm/applications/org.webosinternals.purple"
+
     conf.load("libpurple palm_programs", tooldir=TOOLDIR)
 
 def build(bld):
