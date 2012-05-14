@@ -35,5 +35,8 @@ chmod 755 /var/usr/sbin/${TRANSPORT}
 # Rescan Luna (Makes plugins show and work correctly)
 luna-send -n 1 palm://com.palm.applicationManager/rescan {} || true
 
+# Create org.webosinternals.purple.config kind
+luna-send -a org.webosinternals.purple.transport -n 1 palm://com.palm.db/putKind "$(cat /etc/palm/db/kinds/org.webosinternals.purple.config)"
+
 # We are done
 exit 0
