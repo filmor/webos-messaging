@@ -89,7 +89,7 @@ def configure(conf):
     conf.define("LIBDIR", ".")
     conf.define("SIZEOF_TIME_T", 4, quote=False)
     conf.define("HAVE_CONFIG_H", 1, quote=False)
-    conf.define("HAVE_CYRUS_SASL", 1, quote=False)
+#    conf.define("HAVE_CYRUS_SASL", 1, quote=False)
     conf.define("HAVE_GNUTLS_PRIORITY_FUNCS", 1)
     conf.define("_GNU_SOURCE", 1, quote=False)
 
@@ -132,8 +132,9 @@ def build(bld):
         exclude = ["win32"]
         path = None
         if i == "jabber":
-            bld.load("sasl", tooldir="build_lib")
-            use += ["sasl", "SASL_BUILD"]
+            # bld.load("sasl", tooldir="build_lib")
+            # use += ["sasl", "SASL_BUILD"]
+            exclude += ["auth_cyrus.c"]
         if i == "icq":
             exclude += ["libaim.c"]
             path = "oscar"

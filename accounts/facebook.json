@@ -16,7 +16,9 @@
         "loc_usernameLabel": "Facebook E-Mail",
         "preferences": {
             "server": "chat.facebook.com",
-            "port": 5222
+            "port": 5222,
+            "auth_plain_in_clear": false,
+            "connection_security": "opportunistic_tls"
         }
     }
 }

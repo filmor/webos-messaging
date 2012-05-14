@@ -45,7 +45,7 @@ done
 
 # Locales
 NLS_MODULE=libpurple # Defined as PACKAGE in libpurple.py
-for i in de en fr it es
+for i in de fr it es
 do
     OUT_PATH=${PKG_ROOT}/share/locale/${i}/LC_MESSAGES
     mkdir -p ${OUT_PATH}

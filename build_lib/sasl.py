@@ -9,13 +9,15 @@ def get_path():
         return glob("deps/cyrus-sasl-*/")[-1]
     except IndexError:
         raise RuntimeError("Couldn't find cyrus-sasl sources")
+    
+plugins = [
+            "anonymous", "cram", "digestmd5", "login", "plain"
+          ]
 
 def configure(ctx):
     ctx.env.append_value("INCLUDES_SASL_BUILD", [join(get_path(), "include"),
                                                  "./sasl_build"]
                         )
-
-    ctx.env.append_value("CFLAGS_SASL_BUILD", ["-fPIC"])
 
     ctx.define("_GNU_SOURCE", 1)
     ctx.define("HIER_DELIMITER", '/')
@@ -26,6 +28,14 @@ def configure(ctx):
     ctx.define("CONFIGDIR", "")
     ctx.define("PLUGINDIR", "")
     ctx.define("VERSION", VERSION)
+
+    for p in plugins:
+        if p == "cram":
+            p = "crammd5"
+        elif p == "gssapi":
+            p = "gssapiv2"
+
+        ctx.define("STATIC_%s" % p.upper(), 1, quote=False)
 
     headers = [
             "dirent", "dlfcn", "fcntl", "gssapi", "inttypes", "limits",
@@ -72,12 +82,19 @@ def build(ctx):
     # HACK!
     ctx.add_pre_fun(create_symlink)
 
+    ctx.objects(target="sasl_plugins",
+                source=[join(get_path(), "plugins", i + ".c")
+                        for i in plugins + ["plugin_common"]],
+                includes=join(get_path(), "include"),
+                use="BASE SASL_BUILD"
+               )
+
     ctx.objects(target="sasl",
                 source=ant_glob(ctx, get_path(), "lib", "*.c",
                                 exclude=exclude),
                 includes=join(get_path(), "include"),
                 export_includes=".",
-                use="BASE SASL_BUILD",
+                use="BASE SASL_BUILD sasl_plugins",
                )
                 
 # TODO: Custom cleaner!
