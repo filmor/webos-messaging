@@ -1,0 +1,12 @@
+.gitignore
+.*.sw[po]
+build/
+ref/
+deps/
+build_lib/lib
+ipkg_root/
+.waf*
+.lock-wafbuild
+release-linux-arm
+*.py[co]
+.todo*
