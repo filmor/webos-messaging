@@ -3,6 +3,7 @@
 import json
 import sys
 import string
+import subprocess
 from os import path, extsep, makedirs
 from shutil import copyfile
 
@@ -38,11 +39,25 @@ def _apply_subs(val, subs):
     else:
         return val
 
+
+CONVERSION_RULE = 'convert "{from_path}" "{to_path}"'
+SIZE_CONVERSION_RULE = 'convert -geometry {size}x{size} "{from_path}" "{to_path}"'
+
+def _convert(from_path, to_path, size, type):
+    if type == 'png' and size == None:
+        copyfile(from_path, to_path)
+
+    rule = CONVERSION_RULE if size == None else SIZE_CONVERSION_RULE
+    cmd = rule.format(from_path=from_path, to_path=to_path, size=size)
+
+    if subprocess.call(cmd, shell=True):
+        raise OSError("Couldn't convert")
+
 class Context(object):
     def __init__(self, filename, includes=[], substitutions={}):
         self._data = {}
         self._subs = substitutions
-        self._to_copy = []
+        self._images = []
 
         obj = json.load(open(filename))
 
@@ -87,13 +102,13 @@ class Context(object):
         self._data["icons"] = _apply_subs(d, self._subs)
 
         for key, val in self._data["icons"].iteritems():
-            output = val.setdefault("name",
-                                    path.join("images",
-                                              path.basename(val["path"])
-                                             )
-                                   )
-            self._subs[key] = output
-            self._to_copy.append((val["path"], output))
+            self._subs[key] = val["name"]
+            self._images.append((
+                    val["path"],
+                    val["name"],
+                    val.get("size", None),
+                    val.get("type", path.splitext(val["path"])[1][1:])
+                ))
 
     def write(self, target, *args, **kwargs):
         self.do_subs()
@@ -104,19 +119,18 @@ class Context(object):
         template_id = output["templateId"]
         out = path.join(target, template_id)
 
-        for from_path, to_path in self._to_copy:
+        for from_path, to_path, size, type in self._images:
             try:
                 makedirs(path.join(out, path.dirname(to_path)))
             except OSError:
                 pass
-            # TODO
-            print "Copying %s to %s" % (from_path, path.join(out, to_path))
-            copyfile(from_path, path.join(out, to_path))
+
+            print "Processing image %s" % (to_path,)
+            _convert(from_path, path.join(out, to_path), size, type)
 
         # TODO: Translations
         out_file = path.join(out, template_id + ".json")
         json.dump(output, open(out_file, "w"), *args, **kwargs)
-
 
 def create_account(name, out, pidgin_path, proto="prototype.json"):
     ctx = Context(name, includes=[proto],
