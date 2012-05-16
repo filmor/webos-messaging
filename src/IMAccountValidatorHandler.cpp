@@ -145,7 +145,10 @@ MojErr IMAccountValidatorHandler::getEvent(MojServiceMessage* serviceMsg, const 
 {
     MojObject elem;
     Purple::popEvent(elem);
-    serviceMsg->replySuccess(elem);
+    if (elem.contains("error") || elem.contains("errorCode"))
+        serviceMsg->reply(elem);
+    else
+        serviceMsg->replySuccess(elem);
     return MojErrNone;
 }
 

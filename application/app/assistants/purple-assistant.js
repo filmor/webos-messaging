@@ -1,5 +1,5 @@
 
-var PurpleAssistant = function (params) {
+PurpleAssistant = function (params) {
     this.template = params.initialTemplate || params.template;
 
     this.username = params.username || "";
@@ -8,11 +8,11 @@ var PurpleAssistant = function (params) {
     this.prefs = {};
     this.options = {};
     this.optionsModels = {};
-}
+};
 
 var _ValidatorAddress = "palm://org.webosinternals.purple.validator/";
 
-var PurpleAssistant.prototype.setup = function() {
+PurpleAssistant.prototype.setup = function() {
     this.controller.get('header').innerHTML = this.template.loc_name;
 
     // Username
@@ -20,6 +20,9 @@ var PurpleAssistant.prototype.setup = function() {
         value: this.username,
         disabled: false
     };
+
+    this.controller.get('loc_usernameLabel').innerHTML =
+        this.template.loc_usernameLabel || "Username";
 
     this.controller.setupWidget('username',
         {
@@ -35,6 +38,9 @@ var PurpleAssistant.prototype.setup = function() {
         disabled: false
     };
 
+    this.controller.get('loc_passwordLabel').innerHTML =
+        this.template.loc_passwordLabel || "Password";
+
     this.controller.setupWidget('password',
         {
             textFieldName: "loc_passwordLabel",
@@ -42,19 +48,6 @@ var PurpleAssistant.prototype.setup = function() {
         },
         this.passwordModel
     );
-
-    // Call getOptions
-    new Mojo.Service.Request(_ValidatorAddress + "getOptions", {
-        parameters: {
-            prpl: this.template.prpl
-        },
-        onSuccess: this.optionsSuccess.bind(this)
-        // TODO: onFailure: Return
-    });
-);
-
-var PurpleAssistant.prototype.optionsSuccess = function(response) {
-    this.createOptionsWidget(response.options);
 
     // Setup CreateAccount widget
     this.controller.setupWidget('CreateAccountButton',
@@ -68,12 +61,42 @@ var PurpleAssistant.prototype.optionsSuccess = function(response) {
         }
     );
 
-    this.controller.listen('CreateAccountButton', Mojo.Event.tap,
-            PurpleAssistant.createAccount.bind(this)
-        );
-);
+    // Setup OptionsList
+    this.optionsModel = {
+        label: "Advanced Options!",
+        items: []
+    };
 
-var PurpleAssistant.prototype.createAccount = function(ev) {
+    this.controller.setupWidget("OptionsList", {
+            itemTemplate: "templates/options-item",
+            swipeToDelete: false,
+            autoconfirmDelete: false,
+            reorderable: false
+        },
+        this.optionsModel);
+
+    // Call getOptions
+    this.controller.serviceRequest(_ValidatorAddress + "getOptions", {
+        parameters: {
+            prpl: this.template.prpl,
+            locale: Mojo.Locale.getCurrentLocale()
+        },
+        onSuccess: this.optionsSuccess.bind(this)
+        // TODO: onFailure: Return
+    });
+};
+
+PurpleAssistant.prototype.optionsSuccess = function(response) {
+    Mojo.Log.error("optionsSuccess: " + JSON.stringify(response));
+    this.createOptionsWidget(response.options);
+
+    this.controller.listen(this.controller.get('CreateAccountButton'),
+            Mojo.Event.tap,
+            this.createAccount.bindAsEventListener(this)
+        );
+};
+
+PurpleAssistant.prototype.createAccount = function(ev) {
     if (this.usernameModel.value == "")
     {
         this.showError("Validation", "Please enter a valid username");
@@ -82,7 +105,7 @@ var PurpleAssistant.prototype.createAccount = function(ev) {
 
     this.disableControls();
 
-    new Mojo.Service.Request(_ValidatorAddress + "validateAccount", {
+    this.controller.serviceRequest(_ValidatorAddress + "validateAccount", {
         parameters: {
             "username": this.usernameModel.value,
             "password": this.passwordModel.value,
@@ -90,19 +113,27 @@ var PurpleAssistant.prototype.createAccount = function(ev) {
             "templateId": this.template.templateId,
             "config": this.prefs
         },
-        onFailure: this.loginFailure.bind(this),
-        onError: this.loginFailure.bind(this)
+        onFailure: this.eventFail.bind(this),
+        onError: this.eventFail.bind(this)
     });
 
     this.getEvent();
 };
 
-var PurpleAssistant.prototype.eventSuccess = function(response) {
+PurpleAssistant.prototype.eventSuccess = function(response) {
     if ("credentials" in response)
     {
-        var result = response;
-        result.username = this.usernameModel.value;
-        result.config = this.prefs;
+        var result = {
+            template: this.template,
+            username: response.username || this.usernameModel.value,
+            config: this.prefs,
+            defaultResult: {
+                result: {
+                    returnValue: true,
+                    credentials: response.credentials
+                }
+            }
+        };
 
         this.controller.stageController.popScene(result);
     }
@@ -112,7 +143,8 @@ var PurpleAssistant.prototype.eventSuccess = function(response) {
     }
 };
 
-var PurpleAssistant.prototype.eventFail = function(response) {
+PurpleAssistant.prototype.eventFail = function(response) {
+    Mojo.Log.error(JSON.stringify(response))
     if (response.errorCode) {
         // TODO: Show error message
     }
@@ -124,16 +156,16 @@ var PurpleAssistant.prototype.eventFail = function(response) {
     this.enableControls();
 };
 
-var PurpleAssistant.prototype.enableControls = function(val) {
-    PurpleAssistant.createButton.mojo.deactivate();
+PurpleAssistant.prototype.enableControls = function(val) {
+    this.controller.get('CreateAccountButton').mojo.deactivate();
     this.toggleControls(true);
 };
 
-var PurpleAssistant.prototype.disableControls = function(val) {
+PurpleAssistant.prototype.disableControls = function(val) {
     this.toggleControls(false);
 };
 
-var PurpleAssistant.prototype.toggleControls = function(val) {
+PurpleAssistant.prototype.toggleControls = function(val) {
     val = val && true || false;
     this.usernameModel.disabled = val;
     this.passwordModel.disabled = val;
@@ -148,7 +180,7 @@ var PurpleAssistant.prototype.toggleControls = function(val) {
     }
 };
 
-var PurpleAssistant.prototype.showPopup = function(popup) {
+PurpleAssistant.prototype.showPopup = function(popup) {
     var dialog = {
         message: ""
     };
@@ -181,7 +213,7 @@ var PurpleAssistant.prototype.showPopup = function(popup) {
         dialog.choices = choices;
         dialog.preventCancel = true;
 
-        dialog.handle = function(value) {
+        dialog.onChoose = function(value) {
             new Mojo.Service.Request(_ValidatorAddress + "answerEvent", {
                 parameters: {
                     answer: value.id,
@@ -201,11 +233,12 @@ var PurpleAssistant.prototype.showPopup = function(popup) {
     this.controller.showAlertDialog(dialog);
 };
 
-var PurpleAssistant.prototype.getEvent = function() {
-    new Mojo.Service.Request(_ValidatorAddress + "getEvent", {
+PurpleAssistant.prototype.getEvent = function() {
+    this.controller.serviceRequest(_ValidatorAddress + "getEvent", {
         parameters: {},
         onSuccess: this.eventSuccess.bind(this),
-        onFailure: this.eventFailure.bind(this)
+        onFailure: this.eventFail.bind(this),
+        onError: this.eventFail.bind(this)
     });
 };
 
@@ -216,14 +249,12 @@ var _TypeToMojoElement = {
     "list": "ListSelector"
 };
 
-var PurpleAssistant.prototype.createOptionsWidget = function(options) {
-    var optionsModel = [];
-
+PurpleAssistant.prototype.createOptionsWidget = function(options) {
     for (var name in options) {
         var node = options[name];
         if (node.type in _TypeToMojoElement)
         {
-            optionsModel.push({
+            this.optionsModel.items.push({
                 name: name,
                 text: node.text,
                 mojo_element: _TypeToMojoElement[node.type]
@@ -231,15 +262,8 @@ var PurpleAssistant.prototype.createOptionsWidget = function(options) {
         }
     }
 
+    this.controller.modelChanged(this.optionsModel);
     this.options = options;
-
-    this.controller.setupWidget("OptionsList", {
-            itemTemplate: "templates/options-item",
-            swipeToDelete: false,
-            autoconfirmDelete: false,
-            reorderable: false
-        },
-        optionsModel);
 
     for (var name in options) {
         var node = options[name];
@@ -269,20 +293,21 @@ var PurpleAssistant.prototype.createOptionsWidget = function(options) {
         }
         else if (node.type == "list")
         {
-            attributes.choices = [];
+            model.choices = [];
             for (var name_ in node.choices)
-                attributes.choices.push({
+                model.choices.push({
                     label: node.choices[name_],
                     value: name_
                 });
             if ("default_value" in node)
-                model.value = node.default_value
+                model.value = node.default_value;
         }
 
         this.optionsModels[name] = model;
 
         this.controller.setupWidget(name, attributes, this.optionsModels[name]);
-        Mojo.Event.listen(
+        Mojo.Log.info("Setup widget", name, attributes);
+        this.controller.listen(
                 this.controller.get(name),
                 Mojo.Event.propertyChange,
                 function (ev) {
