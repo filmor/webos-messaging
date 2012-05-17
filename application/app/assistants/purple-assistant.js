@@ -6,7 +6,6 @@ PurpleAssistant = function (params) {
     this.password = params.password || "";
     this.prpl = this.template.prpl;
     this.prefs = {};
-    this.options = {};
     this.optionsModels = {};
 };
 
@@ -63,12 +62,11 @@ PurpleAssistant.prototype.setup = function() {
 
     // Setup OptionsList
     this.optionsModel = {
-        label: "Advanced Options!",
         items: []
     };
 
     this.controller.setupWidget("OptionsList", {
-            itemTemplate: "templates/options-item",
+            itemTemplate: "../templates/options-item",
             swipeToDelete: false,
             autoconfirmDelete: false,
             reorderable: false
@@ -87,9 +85,10 @@ PurpleAssistant.prototype.setup = function() {
 };
 
 PurpleAssistant.prototype.optionsSuccess = function(response) {
-    Mojo.Log.error("optionsSuccess: " + JSON.stringify(response));
+    Mojo.Log.info("optionsSuccess: " + JSON.stringify(response));
     this.createOptionsWidget(response.options);
 
+    Mojo.Log.info("Setup create button:");
     this.controller.listen(this.controller.get('CreateAccountButton'),
             Mojo.Event.tap,
             this.createAccount.bindAsEventListener(this)
@@ -262,8 +261,7 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
         }
     }
 
-    this.controller.modelChanged(this.optionsModel);
-    this.options = options;
+    Mojo.Log.info(JSON.stringify(this.optionsModel));
 
     for (var name in options) {
         var node = options[name];
@@ -306,14 +304,18 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
         this.optionsModels[name] = model;
 
         this.controller.setupWidget(name, attributes, this.optionsModels[name]);
-        Mojo.Log.info("Setup widget", name, attributes);
-        this.controller.listen(
+
+        Mojo.Log.info("Setup widget", name, JSON.stringify(attributes), JSON.stringify(this.optionsModels[name]));
+        if (this.controller.get(name))
+            this.controller.listen(
                 this.controller.get(name),
                 Mojo.Event.propertyChange,
-                function (ev) {
-                    this.prefs[name] = ev.value;
-                }
+                this.prefsChanged.bindAsEventListener(this, name)
         );
     }
+    this.controller.modelChanged(this.optionsModel);
 };
 
+PurpleAssistant.prototype.prefsChanged = function(name, ev) {
+    this.prefs[name] = ev.value;
+};
