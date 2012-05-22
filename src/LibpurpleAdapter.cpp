@@ -126,8 +126,8 @@ typedef struct _auth_and_add
 
 struct AccountMetaData
 {
-	const char* account_key;
-	const char* servicename;
+    std::string account_key;
+    std::string servicename;
 };
 
 static void incoming_message_cb(PurpleConversation *conv, const char *who, const char *alias, const char *message,	PurpleMessageFlags flags, time_t mtime);
@@ -367,7 +367,7 @@ static char* getAuthRequestKey(const char* username, const char* serviceName, co
 	return authRequestKey;
 }
 
-static const char* getAccountKeyFromPurpleAccount(PurpleAccount* account)
+static std::string const& getAccountKeyFromPurpleAccount(PurpleAccount* account)
 {
 	if (!account || !account->ui_data)
 	{
@@ -377,7 +377,7 @@ static const char* getAccountKeyFromPurpleAccount(PurpleAccount* account)
 	return ((AccountMetaData*)account->ui_data)->account_key;
 }
 
-static const char* getServiceNameFromPurpleAccount(PurpleAccount* account)
+static std::string const& getServiceNameFromPurpleAccount(PurpleAccount* account)
 {
 	if (!account || !account->ui_data)
 		return "";
@@ -1327,8 +1327,12 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams const& params,
 				return FAILED;
 			}
 
+            // TODO: If the account did exist before we get a leak here,
+            //       look into this (when do we have to delete
+            //       account->ui_data? Is there a destructor for
+            //       purple_accounts?)
 			AccountMetaData* amd = new AccountMetaData;
-			amd->account_key = strndup(accountKey.c_str(), accountKey.size());
+			amd->account_key = accountKey;
 			amd->servicename = params.serviceName.data();
 
 			account->ui_data = (void*)amd;
@@ -1403,7 +1407,6 @@ bool LibpurpleAdapter::logout(const char* serviceName, const char* username, Log
 
 	if (accountTologoutFrom != 0)
 	{
-		delete (AccountMetaData*)accountTologoutFrom->ui_data;
 		purple_account_disconnect(accountTologoutFrom);
 	}
 
