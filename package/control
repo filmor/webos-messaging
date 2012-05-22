@@ -5,4 +5,4 @@ Priority: optional
 Architecture: armv7
 Maintainer: Benedikt Sauer
 Description: Messaging Plugins
-Source: {"Source": "http://github.com/filmor/webos-messaging", "Homepage": "http://github.com/filmor/webos-messaging", "MinWebOSVersion": "2.0", "Category": "Services and Plugins", "Type": "Plugin", "FullDescription": "Adds more messaging account options to WebOS 2 and 3 (needs enyo)", "Title": "Messaging Plugins"}
+Source: {"Source": "http://github.com/filmor/webos-messaging", "Homepage": "http://github.com/filmor/webos-messaging", "MinWebOSVersion": "2.0", "Category": "Services and Plugins", "Type": "Plugin", "FullDescription": "Adds more messaging account options to WebOS 2 and 3", "Title": "Messaging Plugins"}
