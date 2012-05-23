@@ -1,12 +1,11 @@
 
-PurpleAssistant = function (params) {
+function PurpleAssistant (params) {
     this.template = params.initialTemplate || params.template;
 
     this.username = params.username || "";
     this.password = params.password || "";
     this.prpl = this.template.prpl;
-    this.prefs = {};
-    this.optionsModels = {};
+    this.prefs = this.template.preferences || {};
 };
 
 var _ValidatorAddress = "palm://org.webosinternals.purple.validator/";
@@ -86,7 +85,12 @@ PurpleAssistant.prototype.setup = function() {
 
 PurpleAssistant.prototype.optionsSuccess = function(response) {
     Mojo.Log.info("optionsSuccess: " + JSON.stringify(response));
-    this.createOptionsWidget(response.options);
+    var stripped_options = {};
+    for (var name in response.options)
+        if (!(name in this.prefs))
+            stripped_options[name] = response.options[name];
+    
+    this.createOptionsWidget(stripped_options);
 
     Mojo.Log.info("Setup create button:");
     this.controller.listen(this.controller.get('CreateAccountButton'),
@@ -165,18 +169,18 @@ PurpleAssistant.prototype.disableControls = function(val) {
 };
 
 PurpleAssistant.prototype.toggleControls = function(val) {
-    val = val && true || false;
+    val = !!val;
     this.usernameModel.disabled = val;
     this.passwordModel.disabled = val;
 
     this.controller.modelChanged(this.usernameModel);
     this.controller.modelChanged(this.passwordModel);
 
-    for (var name in this.optionsModels)
+    for (var name in this.optionsModel)
     {
-        this.optionsModels[name].disabled = val;
-        this.controller.modelChanged(this.optionsModels[name]);
+        this.optionsModel[name].disabled = val;
     }
+    this.controller.modelChanged(this.optionsModel)
 };
 
 PurpleAssistant.prototype.showPopup = function(popup) {
@@ -253,59 +257,54 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
         var node = options[name];
         if (node.type in _TypeToMojoElement)
         {
-            this.optionsModel.items.push({
-                name: name,
-                text: node.text,
-                mojo_element: _TypeToMojoElement[node.type]
-            });
+            var model = {
+                itemId: name,
+                name: "optionWidget_" + node.type,
+                itemText: node.text,
+                itemMojoElement: _TypeToMojoElement[node.type],
+                disabled: false
+            };
+
+            if ("default_value" in node)
+                model.value = node.default_value || "";
+
+            if (node.type == "list")
+            {
+                model.choices = [];
+                for (var name_ in node.choices)
+                    model.choices.push({
+                        label: node.choices[name_],
+                        value: name_
+                    });
+            }
+
+            this.optionsModel.items.push(model);
         }
     }
 
+    // Setup widgets
+    this.controller.setupWidget("optionWidget_string", {
+        changeOnKeyPress: true
+        }, {});
+
+    this.controller.setupWidget("optionWidget_int", {
+        changeOnKeyPress: true,
+        charsAllow: function(c) {
+            if (/[0-9]/.test(c))
+                return true;
+            else
+                return false;
+            }
+        }, {});
+
+    this.controller.setupWidget("optionWidget_bool", {}, {});
+    this.controller.setupWidget("optionWidget_list", {}, {});
+
     Mojo.Log.info(JSON.stringify(this.optionsModel));
+    this.controller.modelChanged(this.optionsModel);
+    this.controller.instantiateChildWidgets(this.controller.get("OptionsList"));
 
     for (var name in options) {
-        var node = options[name];
-
-        var attributes = {};
-        var model = { disabled: false };
-
-        if ("default_value" in node)
-            model.value = node.default_value;
-
-        if (node.type == "string")
-        {
-            attributes.changeOnKeyPress = true;
-        }
-        else if (node.type == "int")
-        {
-            attributes.changeOnKeyPress = true;
-            attributes.charsAllow = function(c) {
-                if (/[0-9]/.test(c))
-                    return true;
-                else
-                    return false;
-            }
-        }
-        else if (node.type == "bool")
-        {
-        }
-        else if (node.type == "list")
-        {
-            model.choices = [];
-            for (var name_ in node.choices)
-                model.choices.push({
-                    label: node.choices[name_],
-                    value: name_
-                });
-            if ("default_value" in node)
-                model.value = node.default_value;
-        }
-
-        this.optionsModels[name] = model;
-
-        this.controller.setupWidget(name, attributes, this.optionsModels[name]);
-
-        Mojo.Log.info("Setup widget", name, JSON.stringify(attributes), JSON.stringify(this.optionsModels[name]));
         if (this.controller.get(name))
             this.controller.listen(
                 this.controller.get(name),
@@ -313,7 +312,6 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
                 this.prefsChanged.bindAsEventListener(this, name)
         );
     }
-    this.controller.modelChanged(this.optionsModel);
 };
 
 PurpleAssistant.prototype.prefsChanged = function(name, ev) {

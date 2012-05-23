@@ -35,9 +35,10 @@
         "validator": {
             "customUI": {
                 "appId": "$prefix.purple",
-                "name": "validator.html"
+                "name": "validator.html",
+                "path": "purple"
             },
-            "address": "palm://$validator/checkCredentials"
+            "address": "palm://$validator/validateAccount"
         },
         "readPermissions": [
             "$transport",

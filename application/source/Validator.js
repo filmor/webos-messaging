@@ -22,8 +22,6 @@ enyo.kind({
         if (this.template.loc_passwordLabel)
             this.$.passwordGroup.setCaption(this.template.loc_passwordLabel);
 
-        enyo.log(this.template);
-
         // var locale = enyo.g11n && enyo.g11n.currentLocale.toISOString();
 
         var call_params = { prpl: this.template.prpl }
@@ -259,7 +257,7 @@ enyo.kind({
             onSuccess: "eventSuccess",
             onFailure: "eventFail"
         },
-        { kind: "Purple.CrossAppResult", name: "crossAppResult" }
+        { kind: "CrossAppResult" }
     ],
 
     doBack: function(sender) {
