@@ -29,6 +29,10 @@ done
 
 mkdir -p ${IPKG_ROOT}/CONTROL
 cp package/* ${IPKG_ROOT}/CONTROL
+echo "CONTROL/postinst" > ${IPKG_ROOT}/pmPostInstall.script
+chmod +x ${IPKG_ROOT}/pmPostInstall.script
+echo "CONTROL/prerm" > ${IPKG_ROOT}/pmPreRemove.script
+chmod +x ${IPKG_ROOT}/pmPreRemove.script
 
 # Accounts
 PROTOCOLS="facebook icq msn google_talk jabber"
