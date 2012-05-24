@@ -11,8 +11,7 @@ LIB_FILES="libpurple.so"
 rm -r ${IPKG_ROOT}/*
 
 mkdir -p ${PKG_ROOT}/system
-cp -rf files/var ${PKG_ROOT}/system
-cp -rf files/etc ${PKG_ROOT}/system
+cp -rf package/var ${PKG_ROOT}/system
 
 mkdir -p ${PKG_ROOT}/system/var/usr/sbin
 for i in ${BIN_FILES}
@@ -28,11 +27,7 @@ do
 done
 
 mkdir -p ${IPKG_ROOT}/CONTROL
-cp package/* ${IPKG_ROOT}/CONTROL
-echo "CONTROL/postinst" > ${IPKG_ROOT}/pmPostInstall.script
-chmod +x ${IPKG_ROOT}/pmPostInstall.script
-echo "CONTROL/prerm" > ${IPKG_ROOT}/pmPreRemove.script
-chmod +x ${IPKG_ROOT}/pmPreRemove.script
+cp package/control ${IPKG_ROOT}/CONTROL
 
 # Accounts
 PROTOCOLS="facebook icq msn google_talk jabber"

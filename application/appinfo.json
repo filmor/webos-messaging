@@ -5,6 +5,7 @@
     "vendor": "Benedikt Sauer",
     "vendor_email": "filmor@gmail.com",
     "visible": false,
+    "hidden": true,
     "type": "web",
     "noWindow": true,
     "main": "validator.html",

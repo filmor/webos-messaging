@@ -1,0 +1,65 @@
+#!/bin/sh
+
+APPID=org.webosinternals.purple
+APPS=/media/cryptofs/apps
+
+# Set Application Install Directory
+APPDIR=${APPS}/usr/palm/applications/${APPID}
+
+VALIDATOR=${APPID}.validator
+TRANSPORT=${APPID}.transport
+
+#Kill transport if it's running
+killall ${TRANSPORT} || true
+
+#Kill validator if it's running
+killall ${VALIDATOR} || true
+
+# Remove old service files
+rm /etc/palm/db/kinds/org.webosinternals.*.purple || true
+rm /etc/palm/db/kinds/org.webosinternals.purple.config || true
+rm /etc/palm/tempdb/kinds/org.webosinternals.*.purple || true
+
+# Copy service files
+cp -r ${APPDIR}/system/var/ /
+
+rm -r /var/preferences/${APPID}/ || true
+mkdir -p /var/preferences/${APPID}/transport
+mkdir -p /var/preferences/${APPID}/validator
+mkdir -p /var/preferences/${APPID}/certificates
+ln -sf ../certificates /var/preferences/${APPID}/transport
+ln -sf ../certificates /var/preferences/${APPID}/validator
+
+# Set execute on services
+chmod 755 /var/usr/sbin/${VALIDATOR}
+chmod 755 /var/usr/sbin/${TRANSPORT}
+
+# Fix Accounts:
+MAJOR_VER=$( \
+    (grep "PRODUCT_VERSION_STRING" | cut -f 3 -d " " \
+                                   | cut -f 1 -d ".") \
+        < /etc/palm-build-info)
+
+PLACEHOLDER_TEXT="purple"
+[ $MAJOR_VER = 3 ] && PLACEHOLDER_TEXT="validator.html"
+
+# TODO
+# if [ $MAJOR_VER = 2 ]; then
+    cp -rf ${APPDIR}/configuration/* /etc/palm
+    configurator
+# fi
+
+find ${APPS}/usr/palm/accounts -type f -name ${APPID}.\*.json \
+     -exec sed -i "s/%PLACEHOLDER%/${PLACEHOLDER_TEXT}/g" {} \;
+
+# Restart Account service
+luna-send -n 1 palm://com.palm.service.accounts/__quit {}
+
+# Rescan services
+ls-control scan-services || true
+
+# Rescan Luna (Makes plugins show and work correctly)
+luna-send -n 1 palm://com.palm.applicationManager/rescan {} || true
+
+# We are done
+exit 0

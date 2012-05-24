@@ -2,8 +2,6 @@
 <html>
     <head>
         <title>Create Messaging Account</title>
-        <script src="/usr/palm/frameworks/mojo/mojo.js" x-mojo-version="1"
-            type="text/javascript"></script>        
         <script type="text/javascript">
             var deviceInfo = JSON.parse(PalmSystem.deviceInfo);
 
@@ -16,9 +14,6 @@
                 new_loc = "validator_enyo.html";
 
             new_loc = loc.replace(/\/validator\.html/, "/" + new_loc);
-
-            Mojo.Log.info(loc);
-            Mojo.Log.info(new_loc);
 
             window.location.href = new_loc;
         </script>

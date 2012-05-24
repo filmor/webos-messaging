@@ -1,7 +1,7 @@
 [
     {
         "type": "db.kind",
-        "object": "org.webosinternals.imloginstate.purple:1",
+        "object": "org.webosinternals.purple.imbuddystatus:1",
         "caller": "com.palm.*",
         "operations": {
             "read": "allow",

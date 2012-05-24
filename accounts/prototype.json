@@ -3,9 +3,10 @@
     "servicename": "type_$name",
     "iconname": "$basename",
     "prefix": "org.webosinternals",
-    "templateid": "$prefix.purple.$basename",
-    "validator": "$prefix.purple.validator",
-    "transport": "$prefix.purple.transport",
+    "appid": "$prefix.purple",
+    "templateid": "$appid.$basename",
+    "validator": "$appid.validator",
+    "transport": "$appid.transport",
 
     "@icons": {
         "icon22": {
@@ -34,9 +35,8 @@
         },
         "validator": {
             "customUI": {
-                "appId": "$prefix.purple",
-                "name": "validator.html",
-                "path": "purple"
+                "appId": "$appid",
+                "name": "%PLACEHOLDER%"
             },
             "address": "palm://$validator/validateAccount"
         },
@@ -64,8 +64,8 @@
                 "readOnlyData": true,
                 "serviceName":"$servicename",
                 "dbkinds": {
-                    "imcommand": "$prefix.imcommand.purple:1",
-                    "immessage": "$prefix.immessage.purple:1"
+                    "imcommand": "$appid.imcommand:1",
+                    "immessage": "$appid.immessage:1"
                 }
             }
         ]

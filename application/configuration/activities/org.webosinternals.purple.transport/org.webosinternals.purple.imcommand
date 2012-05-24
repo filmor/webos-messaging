@@ -18,7 +18,7 @@
 			"params": {
 				"subscribe": true,
 				"query": {
-					"from": "org.webosinternals.imcommand.purple:1",
+					"from": "org.webosinternals.purple.imcommand:1",
 					"where": [
 						{
                             "op": "=",

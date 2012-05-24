@@ -1,7 +1,7 @@
 [
     {
         "type": "db.kind",
-        "object": "org.webosinternals.imcommand.purple:1",
+        "object": "org.webosinternals.purple.imcommand:1",
         "caller": "com.palm.*",
         "operations": {
             "read": "allow",
@@ -10,7 +10,7 @@
     },
     {
         "type": "db.kind",
-        "object": "org.webosinternals.imcommand.purple:1",
+        "object": "org.webosinternals.purple.imcommand:1",
         "caller": "com.palm.app.messaging",
         "operations": {
             "create": "allow",

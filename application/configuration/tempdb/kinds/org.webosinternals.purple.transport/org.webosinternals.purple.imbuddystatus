@@ -1,7 +1,6 @@
 {
-    "id": "org.webosinternals.imbuddystatus.purple:1",
+    "id": "org.webosinternals.purple.imbuddystatus:1",
     "extends": ["com.palm.imbuddystatus:1"],
-    "owner": "org.webosinternals.purple.transport",
     "indexes": [
         {
             "name": "byAccountId",
