@@ -769,7 +769,7 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 	std::string const& username = Util::getMojoUsername(loggedInAccount->username, loggedInAccount->protocol_id);
 	std::string const& accountKey = getAccountKeyFromPurpleAccount(loggedInAccount);
 
-	if (s_onlineAccountData.find(accountKey) != s_onlineAccountData.end())
+	if (s_onlineAccountData.count(accountKey))
 	{
 		// we were online. why are we getting notified that we're connected again? we were never disconnected.
 		// mark the account online just to be sure?
@@ -780,7 +780,7 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 	/*
 	 * cancel the connect timeout for this account
 	 */
-	if (s_onlineAccountData.find(accountKey) != s_onlineAccountData.end())
+	if (s_accountLoginTimers.count(accountKey))
 	{
 		guint timerHandle = s_accountLoginTimers[accountKey];
 		purple_timeout_remove(timerHandle);
@@ -1358,6 +1358,10 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams const& params,
 
 		/*
 		 * Create a timer for this account's login so it can fail the login after a timeout.
+         *
+         * BUG: This is actually a memory leak, as we are currently not able to
+         *      delete the string-ptr on removal. Need to implement our own
+         *      EventUiOps that handle this.
 		 */
 		guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, new std::string(accountKey));
 		s_accountLoginTimers[accountKey] = timerHandle;
