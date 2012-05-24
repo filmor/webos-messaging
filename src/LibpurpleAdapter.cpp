@@ -1147,7 +1147,7 @@ static void initializeLibpurple()
 	purple_util_set_user_dir(CUSTOM_USER_DIRECTORY);
 
 	/* We do not want any debugging for now to keep the noise to a minimum. */
-	purple_debug_set_enabled(TRUE);
+	purple_debug_set_enabled(false);
 
 	/* Set the core-uiops, which is used to
 	 * 	- initialize the ui specific preferences.
@@ -1184,11 +1184,9 @@ static void initializeLibpurple()
  */
 LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams const& params, LoginCallbackInterface* loginState)
 {
-	LoginResult result = OK;
-
 	PurpleAccount* account;
-	bool accountIsAlreadyOnline = FALSE;
-	bool accountIsAlreadyPending = FALSE;
+	bool accountIsAlreadyOnline = false;
+	bool accountIsAlreadyPending = false;
 
 	MojLogInfo(IMServiceApp::s_log, _T("%s called."), __FUNCTION__);
 
@@ -1343,39 +1341,36 @@ LibpurpleAdapter::LoginResult LibpurpleAdapter::login(LoginParams const& params,
 		purple_account_set_password(account, params.password.data());
 	}
 
-	if (result == OK)
-	{
-		/* mark the account as pending */
-		s_pendingAccountData[accountKey] = account;
+    /* mark the account as pending */
+    s_pendingAccountData[accountKey] = account;
 
-        /* keep track of the local IP address that we bound to when logging in to this account */
-        s_ipAddressesBoundTo[accountKey] = params.localIpAddress;
+    /* keep track of the local IP address that we bound to when logging in to this account */
+    s_ipAddressesBoundTo[accountKey] = params.localIpAddress;
 
-		/* It's necessary to enable the account first. */
-		purple_account_set_enabled(account, UI_ID, TRUE);
+    /* It's necessary to enable the account first. */
+    purple_account_set_enabled(account, UI_ID, TRUE);
 
-		/* Now, to connect the account, create a status and activate it. */
+    /* Now, to connect the account, create a status and activate it. */
 
-		/*
-		 * Create a timer for this account's login so it can fail the login after a timeout.
-         *
-         * BUG: This is actually a memory leak, as we are currently not able to
-         *      delete the string-ptr on removal. Need to implement our own
-         *      EventUiOps that handle this.
-		 */
-		guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, new std::string(accountKey));
-		s_accountLoginTimers[accountKey] = timerHandle;
+    /*
+     * Create a timer for this account's login so it can fail the login after a timeout.
+     *
+     * BUG: This is actually a memory leak, as we are currently not able to
+     *      delete the string-ptr on removal. Need to implement our own
+     *      EventUiOps that handle this.
+     */
+    guint timerHandle = purple_timeout_add_seconds(CONNECT_TIMEOUT_SECONDS, connectTimeoutCallback, new std::string(accountKey));
+    s_accountLoginTimers[accountKey] = timerHandle;
 
-		PurpleStatusPrimitive prim = getPurpleAvailabilityFromPalmAvailability(params.availability);
-		PurpleSavedStatus* savedStatus = purple_savedstatus_new(NULL, prim);
-		if (!params.customMessage.empty())
-		{
-			purple_savedstatus_set_message(savedStatus, params.customMessage);
-		}
-		purple_savedstatus_activate_for_account(savedStatus, account);
-	}
+    PurpleStatusPrimitive prim = getPurpleAvailabilityFromPalmAvailability(params.availability);
+    PurpleSavedStatus* savedStatus = purple_savedstatus_new(NULL, prim);
+    if (!params.customMessage.empty())
+    {
+        purple_savedstatus_set_message(savedStatus, params.customMessage);
+    }
+    purple_savedstatus_activate_for_account(savedStatus, account);
 
-	return result;
+	return OK;
 }
 
 bool LibpurpleAdapter::logout(const char* serviceName, const char* username, LoginCallbackInterface* loginState)
