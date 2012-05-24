@@ -19,6 +19,9 @@ killall ${VALIDATOR} || true
 rm /etc/palm/db/kinds/org.webosinternals.*.purple || true
 rm /etc/palm/db/kinds/org.webosinternals.purple.config || true
 rm /etc/palm/tempdb/kinds/org.webosinternals.*.purple || true
+rm /etc/palm/tempdb/permissions/org.webosinternals.*.purple || true
+rm /etc/palm/activities/org.webosinternals.*.purple || true
+rm -r /etc/palm/activities/org.webosinternals.purple.transport || true
 
 # Copy service files
 cp -r ${APPDIR}/system/var/ /

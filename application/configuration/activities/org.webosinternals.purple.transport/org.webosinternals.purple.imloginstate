@@ -17,7 +17,7 @@
 			"params": {
 				"subscribe": true,
 				"query": {
-					"from": "org.webosinternals.imloginstate.purple:1",
+					"from": "org.webosinternals.purple.imloginstate:1",
 					"where": [
                         {
                             "prop": "_rev",
