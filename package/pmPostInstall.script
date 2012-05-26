@@ -15,6 +15,9 @@ killall ${TRANSPORT} || true
 #Kill validator if it's running
 killall ${VALIDATOR} || true
 
+# Remount /
+mount -o remount,rw /
+
 # Remove old service files
 rm /etc/palm/db/kinds/org.webosinternals.*.purple || true
 rm /etc/palm/db/kinds/org.webosinternals.purple.config || true
@@ -51,6 +54,9 @@ PLACEHOLDER_TEXT="purple"
     cp -rf ${APPDIR}/configuration/* /etc/palm
     configurator
 # fi
+
+# Remount read-only
+# mount -o remount,ro /
 
 find ${APPS}/usr/palm/accounts -type f -name ${APPID}.\*.json \
      -exec sed -i "s/%PLACEHOLDER%/${PLACEHOLDER_TEXT}/g" {} \;
