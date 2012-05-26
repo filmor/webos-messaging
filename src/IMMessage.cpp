@@ -75,9 +75,19 @@ MojErr IMMessage::initFromCallback(const char* serviceName, const char* username
 
     char* unescapedMessage = purple_unescape_html(message);
     char* sanitizedMessage = purple_markup_strip_html(unescapedMessage);
+    g_free(unescapedMessage);
+
+    msgText.assign("");
+
+    // Inefficient but working solution.
+    // TODO: Implement proper sanitization (that just keeps br, u, l and i)
+    for (char* ptr = sanitizedMessage; *ptr; ++ptr)
+        if (*ptr == '\n')
+            msgText.append("<br>");
+        else
+            msgText.append(*ptr);
 
     err = msgText.assign(sanitizedMessage);
-    g_free(unescapedMessage);
     g_free(sanitizedMessage);
 	MojErrCheck(err);
 
