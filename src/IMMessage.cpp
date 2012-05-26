@@ -25,7 +25,6 @@
 
 #include "IMMessage.h"
 #include "IMServiceHandler.h"
-// #include "sanitize.h"
 
 const char* IMMessage::statusStrings[] = {
 	"successful",
@@ -42,11 +41,6 @@ const char* IMMessage::folderStrings[] = {
 	"system",
 	"transient"
 };
-
-// allowable html tags to be ignored by the sanitizer
-const char* IMMessage::trustedTags[] = {"b", "/b", "i", "/i", "br", "/br", "u", "/u", "B", "/B", "I", "/I", "BR", "/BR", "U", "/U",NULL};
-//just for testing
-//const char* IMMessage::trustedTags[] = {"b", "/b", "i", "/i", "br", "/br", "u", "/u", "B", "/B", "I", "/I", "BR", "/BR", "U", "/U", "body", "/body", NULL};
 
 IMMessage::IMMessage()
 {
@@ -79,27 +73,13 @@ MojErr IMMessage::initFromCallback(const char* serviceName, const char* username
 	//    unsanitized: <a>foo</a>
 	//    removed: foo
 
-	// first unescape since gtalk sends everything escaped
-	// message is const char* - need a char* version
-	// char *unescapedMessage = unsanitizeHtml((char*)message);
+    char* unescapedMessage = purple_unescape_html(message);
+    char* sanitizedMessage = purple_markup_strip_html(unescapedMessage);
 
-	// now remove offending html
-	// char * sanitizeHtml(const char *input, char **except, bool remove);
-	//     remove set to true if you want the the tags to actually be removed vs just "escaped".
-	//     except is an array of char* containing tags to ignore when sanitizing. The
-	//          last element must be a null. You need to include both beginning and ending
-	//          tag if you want both removed (i.e. "b", "/b", "i", "/i")
-	// char *sanitizedMessage = sanitizeHtml(unescapedMessage, (char**)IMMessage::trustedTags, true);
-
-	// can't keep this log...
-	//MojLogInfo(IMServiceApp::s_log, _T("original message: %s, unescaped message: %s, sanitized message: %s"), message, unescapedMessage, sanitizedMessage);
-
-//	err = msgText.assign(sanitizedMessage);
-    err = msgText.assign(message);
+    err = msgText.assign(sanitizedMessage);
+    g_free(unescapedMessage);
+    g_free(sanitizedMessage);
 	MojErrCheck(err);
-	// cleanup
-//	free(unescapedMessage);
-//	free(sanitizedMessage);
 
 	// remove blanks and convert to lowercase
 	// for AOL, this is screen name with no "@aol.com"...
