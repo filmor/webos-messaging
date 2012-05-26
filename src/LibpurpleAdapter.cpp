@@ -369,18 +369,20 @@ static char* getAuthRequestKey(const char* username, const char* serviceName, co
 
 static std::string const& getAccountKeyFromPurpleAccount(PurpleAccount* account)
 {
+    static const std::string empty = "";
 	if (!account || !account->ui_data)
 	{
 		MojLogError(IMServiceApp::s_log, _T("getAccountKeyFromPurpleAccount called with empty account"));
-		return "";
+		return empty;
 	}
 	return ((AccountMetaData*)account->ui_data)->account_key;
 }
 
 static std::string const& getServiceNameFromPurpleAccount(PurpleAccount* account)
 {
+    static const std::string empty = "";
 	if (!account || !account->ui_data)
-		return "";
+		return empty;
 
 	return ((AccountMetaData*)account->ui_data)->servicename;
 }
@@ -766,7 +768,6 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 	g_return_if_fail(loggedInAccount != NULL);
 
 	std::string const& serviceName = getServiceNameFromPurpleAccount(loggedInAccount);
-	std::string const& username = Util::getMojoUsername(loggedInAccount->username, loggedInAccount->protocol_id);
 	std::string const& accountKey = getAccountKeyFromPurpleAccount(loggedInAccount);
 
 	if (s_onlineAccountData.count(accountKey))
@@ -796,7 +797,7 @@ static void account_logged_in_cb(PurpleConnection* gc, gpointer loginState)
 	// reply with login success
 	if (loginState)
 	{
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_SUCCESS, false, ERROR_NO_ERROR, false);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), loggedInAccount->username, LoginCallbackInterface::LOGIN_SUCCESS, false, ERROR_NO_ERROR, false);
 	}
 	else
 	{
@@ -865,8 +866,7 @@ static void account_signed_off_cb(PurpleConnection* gc, gpointer loginState)
 	if (loginState)
 	{
 		std::string const& serviceName = getServiceNameFromPurpleAccount(account);
-		std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_SIGNED_OFF, false, ERROR_NO_ERROR, true);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), account->username, LoginCallbackInterface::LOGIN_SIGNED_OFF, false, ERROR_NO_ERROR, true);
 	}
 	else
 	{
@@ -951,10 +951,9 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 	if (loginState != NULL)
 	{
 		std::string const& serviceName = getServiceNameFromPurpleAccount(account);
-		std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
 		//TODO: determine if there are cases where noRetry should be false
 		//TODO: include "description" parameter because it had useful details?
-		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_FAILED, loggedOut, mojoFriendlyErrorCode, noRetry);
+		((LoginCallbackInterface*)loginState)->loginResult(serviceName.c_str(), account->username, LoginCallbackInterface::LOGIN_FAILED, loggedOut, mojoFriendlyErrorCode, noRetry);
 	}
 	else
 	{
@@ -1026,10 +1025,9 @@ void incoming_message_cb(PurpleConversation* conv, const char* who, const char* 
 
 	// these never return null...
 	std::string const& serviceName = getServiceNameFromPurpleAccount(account);
-	std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
 
 	// call the transport service incoming message handler
-	s_imServiceHandler->incomingIM(serviceName.c_str(), username.c_str(), usernameFrom, message);
+	s_imServiceHandler->incomingIM(serviceName.c_str(), account->username, usernameFrom, message);
 }
 
 /*
@@ -1046,8 +1044,6 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 
 	// these never return null...
 	std::string const& serviceName = getServiceNameFromPurpleAccount(account);
-	std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
-	const char* usernameFromStripped = remote_user;
 
 	// Save off the authorize/deny callbacks to use later
 	AuthRequest *aa = g_new0(AuthRequest, 1);
@@ -1058,7 +1054,7 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 	aa->alias = g_strdup(alias);
 	aa->account = account;
 
-	char *authRequestKey = getAuthRequestKey(username.c_str(), serviceName.c_str(), usernameFromStripped);
+	char *authRequestKey = getAuthRequestKey(account->username, serviceName.c_str(), remote_user);
 	// if there is already an entry for this, we need to replace it since callback function pointers will change on login
 	// old object gets deleted by our destroy functions specified in the hash table construction
 	g_hash_table_replace(s_AuthorizeRequests, authRequestKey, aa);
@@ -1066,7 +1062,7 @@ static void *request_authorize_cb (PurpleAccount *account, const char *remote_us
 	logAuthRequestTableValues();
 
 	// call back into IMServiceHandler to create a receivedBuddyInvite imCommand.
-	s_imServiceHandler->receivedBuddyInvite(serviceName.c_str(), username.c_str(), usernameFromStripped, message);
+	s_imServiceHandler->receivedBuddyInvite(serviceName.c_str(), account->username, remote_user, message);
 
 	// don't free the authRequestKey - it is not copied, but held onto for the life of the hash table once inserted
 	return NULL;
@@ -1110,9 +1106,8 @@ gboolean connectTimeoutCallback(gpointer data)
 	if (s_loginState)
 	{
 		std::string const& serviceName = getServiceNameFromPurpleAccount(account);
-		std::string const& username = Util::getMojoUsername(account->username, account->protocol_id);
 
-		s_loginState->loginResult(serviceName.c_str(), username.c_str(), LoginCallbackInterface::LOGIN_TIMEOUT, false, ERROR_NETWORK_ERROR, true);
+		s_loginState->loginResult(serviceName.c_str(), account->username, LoginCallbackInterface::LOGIN_TIMEOUT, false, ERROR_NETWORK_ERROR, true);
 	}
 	else
 	{
@@ -1529,12 +1524,10 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 
 	PurpleAccount* account = s_onlineAccountData[accountKey];
 
-	// strip off the "@aol.com" if needed
-	std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, buddyUsername);
 	if (block)
 	{
-		MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: deny %s. account perm_deny %d"), transportFriendlyUserName.c_str(), account->perm_deny);
-		purple_privacy_deny(account, transportFriendlyUserName.c_str(), false, true);
+		MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: deny %s. account perm_deny %d"), buddyUsername, account->perm_deny);
+		purple_privacy_deny(account, buddyUsername, false, true);
 		//bool success = purple_privacy_deny_add(account, transportFriendlyUserName, false);
 		//if (!success) {
 		//	MojLogError(IMServiceApp::s_log, "blockBuddy: purple_privacy_deny_add - returned false");
@@ -1546,8 +1539,8 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::blockBuddy(const char* serviceNam
 	}
 	else
 	{
-		MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: allow %s"), transportFriendlyUserName.c_str());
-		purple_privacy_allow(account, transportFriendlyUserName.c_str(), false, true);
+		MojLogInfo(IMServiceApp::s_log, _T("blockBuddy: allow %s"), buddyUsername);
+		purple_privacy_allow(account, buddyUsername, false, true);
 	}
 
 	return SENT;
@@ -1586,10 +1579,9 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::removeBuddy(const char* serviceNa
 
 	PurpleAccount* account = s_onlineAccountData[accountKey];
 	// strip off the "@aol.com" if needed
-	std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, buddyUsername);
-	MojLogInfo(IMServiceApp::s_log, _T("removeBuddy: %s"), transportFriendlyUserName.c_str());
+	MojLogInfo(IMServiceApp::s_log, _T("removeBuddy: %s"), buddyUsername);
 
-	PurpleBuddy* buddy = purple_find_buddy(account, transportFriendlyUserName.c_str());
+	PurpleBuddy* buddy = purple_find_buddy(account, buddyUsername);
 	if (NULL == buddy) {
 		MojLogError(IMServiceApp::s_log, _T("could not find buddy in list - cannot remove"));
 		return INVALID_PARAMS;
@@ -1639,10 +1631,9 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::addBuddy(const char* serviceName,
 	PurpleAccount* account = s_onlineAccountData[accountKey];
 
 	// strip off the "@aol.com" if needed
-	std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, buddyUsername);
-	MojLogInfo(IMServiceApp::s_log, _T("addBuddy: %s"), transportFriendlyUserName.c_str());
+	MojLogInfo(IMServiceApp::s_log, _T("addBuddy: %s"), buddyUsername);
 
-	PurpleBuddy* buddy = purple_buddy_new(account, transportFriendlyUserName.c_str(), /*alias*/ NULL);
+	PurpleBuddy* buddy = purple_buddy_new(account, buddyUsername, /*alias*/ NULL);
 
 	// add buddy to list
 	/*
@@ -1914,9 +1905,7 @@ LibpurpleAdapter::SendResult LibpurpleAdapter::sendMessage(const char* serviceNa
 	}
 
 	PurpleAccount* accountToSendFrom = s_onlineAccountData[accountKey];
-	// strip off the "@aol.com" if needed
-	std::string const& transportFriendlyUserName = Util::getPurpleUsername(serviceName, usernameTo);
-	PurpleConversation* purpleConversation = purple_conversation_new(PURPLE_CONV_TYPE_IM, accountToSendFrom, transportFriendlyUserName.c_str());
+	PurpleConversation* purpleConversation = purple_conversation_new(PURPLE_CONV_TYPE_IM, accountToSendFrom, usernameTo);
 	char* messageTextUnescaped = g_strcompress(messageText);
 
 	// replace this with the lower level call so we can try to get an error code back...

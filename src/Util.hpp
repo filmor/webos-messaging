@@ -28,10 +28,6 @@ namespace Util
     MojObject getProtocolOptions(MojString prpl);
     PurpleAccount* createPurpleAccount(MojString username, MojString prpl, MojObject config);
 
-    // If there is 
-	std::string getMojoUsername(std::string username, std::string const& prpl);
-	std::string getPurpleUsername(std::string const& serviceName, std::string const& username);
-
 }
 
 #endif
