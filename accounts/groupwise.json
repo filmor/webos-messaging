@@ -1,0 +1,8 @@
+{
+    "name": "groupwise",
+    "basename": "novell",
+    "@template": {
+        "loc_name": "Groupwise",
+        "prpl": "prpl-novell"
+    }
+}

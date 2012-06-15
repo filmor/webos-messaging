@@ -30,7 +30,7 @@ mkdir -p ${IPKG_ROOT}/CONTROL
 cp package/control ${IPKG_ROOT}/CONTROL
 
 # Accounts
-PROTOCOLS="facebook icq msn google_talk jabber"
+PROTOCOLS="facebook icq msn google_talk jabber yahoo groupwise"
 PIDGIN_DIRS=(deps/pidgin-*)
 PIDGIN_DIR=${PIDGIN_DIRS[0]}
 

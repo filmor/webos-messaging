@@ -1,0 +1,7 @@
+{
+    "name": "yahoo",
+    "@template": {
+        "loc_name": "Yahoo IM",
+        "prpl": "prpl-yahoo"
+    }
+}

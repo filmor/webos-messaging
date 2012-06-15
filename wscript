@@ -10,7 +10,8 @@ PALM_PREFIX='org.webosinternals.'
 def options(opt):
     opt.load('compiler_c compiler_cxx')
     opt.load('libpurple palm_programs', tooldir=TOOLDIR)
-    opt.add_option('--protocols', action='store', default="msn,icq,jabber",
+    opt.add_option('--protocols', action='store',
+            default="msn,icq,jabber,novell,yahoo",
                    help="Protocols")
 
 def configure(conf):
