@@ -30,7 +30,7 @@
 
 IMServiceApp* IMServiceApp::s_instance = NULL;
 const char* const IMServiceApp::ServiceName = _T("org.webosinternals.purple.transport");
-MojLogger IMServiceApp::s_log(_T("imlibpurple.serviceApp"));
+MojLogger IMServiceApp::s_log(_T("purple.transport"));
 
 int main(int argc, char** argv)
 {
