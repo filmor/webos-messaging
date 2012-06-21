@@ -100,9 +100,12 @@ PurpleAssistant.prototype.optionsSuccess = function(response) {
 };
 
 PurpleAssistant.prototype.createAccount = function(ev) {
+    Mojo.Log.info("Creating account");
     if (this.usernameModel.value == "")
     {
-        this.showError("Validation", "Please enter a valid username");
+        Mojo.Log.error("No username entered");
+        // Mojo.Controller.errorDialog("Please enter a valid username");
+        this.enableControls();
         return;
     }
 
@@ -149,14 +152,13 @@ PurpleAssistant.prototype.eventSuccess = function(response) {
 PurpleAssistant.prototype.eventFail = function(response) {
     Mojo.Log.error(JSON.stringify(response))
     if (response.errorCode) {
-        // TODO: Show error message
+        this.controller.errorDialog(response.errorText || "");
     }
     else
     {
+        this.enableControls();
         // TODO: Hide error message
     }
-
-    this.enableControls();
 };
 
 PurpleAssistant.prototype.enableControls = function(val) {
@@ -184,6 +186,7 @@ PurpleAssistant.prototype.toggleControls = function(val) {
 };
 
 PurpleAssistant.prototype.showPopup = function(popup) {
+    Mojo.Log.info("Showing popup " + JSON.stringify(popup));
     var dialog = {
         message: ""
     };
@@ -245,25 +248,29 @@ PurpleAssistant.prototype.getEvent = function() {
     });
 };
 
-var _TypeToMojoElement = {
-    "string": "TextField",
-    "int": "TextField",
-    "bool": "CheckBox",
-    "list": "ListSelector"
+var _TypeToTemplate = {
+    "string": "textfield",
+    "int": "textfield",
+    "bool": "checkbox",
+    "list": "row-list"
 };
 
 PurpleAssistant.prototype.createOptionsWidget = function(options) {
     for (var name in options) {
         var node = options[name];
-        if (node.type in _TypeToMojoElement)
+        if (node.type in _TypeToTemplate)
         {
             var model = {
                 itemId: name,
                 name: "optionWidget_" + node.type,
                 itemText: node.text,
-                itemMojoElement: _TypeToMojoElement[node.type],
                 disabled: false
             };
+
+            model.element = Mojo.View.render({
+                            template: "../templates/" + _TypeToTemplate[node.type],
+                            object: model
+            });
 
             if ("default_value" in node)
                 model.value = node.default_value || "";
@@ -315,5 +322,6 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
 };
 
 PurpleAssistant.prototype.prefsChanged = function(name, ev) {
+    Mojo.Log.info("Changed pref: " + name + " to " + ev);
     this.prefs[name] = ev.value;
 };
