@@ -1879,9 +1879,8 @@ bool LibpurpleAdapter::getFullBuddyList(const char* serviceName, const char* use
 
 		buddyListObj.push(buddyObj);
 
-		s_loginState->buddyListResult(serviceName, username, buddyListObj, true);
-		//TODO free the buddyList object???
 	}
+	s_loginState->buddyListResult(serviceName, username, buddyListObj, true);
 
 	return true;
 }
