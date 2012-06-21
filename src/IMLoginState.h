@@ -161,8 +161,7 @@ public:
 
 private:
 	MojErr adoptActivity();
-	MojErr completeAndResetWatch();
-//	MojErr setWatch();
+	MojErr completeActivity();
 	MojErr queryLoginState();
 	MojErr processLoginStates(MojObject& resultSet);
 	MojErr getLoginStateQuery(MojDbQuery& query);

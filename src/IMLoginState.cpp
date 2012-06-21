@@ -382,7 +382,7 @@ MojErr IMLoginStateHandler::updateLoginStateResult(MojObject& payload, MojErr re
 {
 	// DB state is updated so complete the activity and reset the watch so it
 	// can fire again and start the next state transition
-	completeAndResetWatch();
+	completeActivity();
 	return MojErrNone;
 }
 
@@ -455,7 +455,7 @@ MojErr IMLoginStateHandler::getCredentialsResult(MojObject& payload, MojErr resu
 		MojLogInfo(IMServiceApp::s_log, _T("No internet connection available!"));
 		// No internet so mark this activity complete and reset the watch
 		// which will fire next time there's a stable connection
-		completeAndResetWatch();
+		completeActivity();
 	}
 	else
 	{
@@ -698,7 +698,7 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 	if (loginStateItr == loginStateArray.arrayEnd())
 	{
 		MojLogError(IMServiceApp::s_log, _T("processLoginStates had empty result set"));
-		completeAndResetWatch();
+		completeActivity();
 	}
 	else
 	{
@@ -742,7 +742,7 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 				MojErrToString(err, error);
 				MojLogError(IMServiceApp::s_log, _T("ERROR accountId missing from imloginstate. error %d - %s"), err, error.data());
 				// TODO: fail the record and ...
-				completeAndResetWatch();
+				completeActivity();
 			}
 			else
 			{
@@ -769,7 +769,7 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 				updateLoginStateNoResponse(newState.getServiceName(), newState.getUsername(), LOGIN_STATE_OFFLINE, NULL);
 				// Make the buddies for this account look offline to us
 				markBuddiesAsOffline(newState.getAccountId());
-				completeAndResetWatch();
+				completeActivity();
 			}
 		}
 		else if (newState.needsToGetBuddies(cachedState))
@@ -788,12 +788,12 @@ MojErr IMLoginStateHandler::processLoginStates(MojObject& loginStateArray)
 				LibpurpleAdapter::setMyCustomMessage(newState.getServiceName().data(), newState.getUsername().data(), newState.getCustomMessage().data());
 			}
 
-			completeAndResetWatch();
+			completeActivity();
 		}
 		else
 		{
 			// Nothing needed to be done so just reset the watch.
-			completeAndResetWatch();
+			completeActivity();
 		}
 
 		// Finally, add or update the cached entry to reflect whatever changed
@@ -842,7 +842,7 @@ MojErr IMLoginStateHandler::getBuddyLists(const MojString& serviceName, const Mo
 
 
 		// Since it failed, we need to reset the watch ourself.
-		completeAndResetWatch();
+		completeActivity();
 	}
 
 	return MojErrNone;
@@ -912,8 +912,7 @@ MojErr IMLoginStateHandler::adoptActivity()
 	return err;
 }
 
-
-MojErr IMLoginStateHandler::completeAndResetWatch()
+MojErr IMLoginStateHandler::completeActivity()
 {
 	//MojLogInfo(IMServiceApp::s_log, _T("Completing activityId: %llu."), m_activityId);
 	MojErr err = MojErrNone;
@@ -952,75 +951,11 @@ MojErr IMLoginStateHandler::completeAndResetWatch()
 	}
 	else
 	{
-		MojLogError(IMServiceApp::s_log, _T("completeAndResetWatch - no activity id to complete"));
-//		setWatch();
+		MojLogError(IMServiceApp::s_log, _T("completeActivity: No activity id to complete"));
 	}
 
 	return err;
 }
-
-/*
- * NOT USED
- */
-//MojErr IMLoginStateHandler::setWatch()
-//{
-//	MojLogError(IMServiceApp::s_log, _T("setWatch 1"));
-//	MojLogInfo(IMServiceApp::s_log, _T("Starting new loginstate watch"));
-//	MojErr err = MojErrNone;
-//
-//	// Reset the activity watch
-//	MojRefCountedPtr<MojServiceRequest> watchReq;
-//	err = m_service->createRequest(watchReq);
-//	MojErrCheck(err);
-//	MojLogDebug(IMServiceApp::s_log, _T("com.palm.activitymanager/create"));
-//
-//	MojLogError(IMServiceApp::s_log, _T("setWatch 2"));
-//	// A lot of the activity object is static data, so fill that in using hardcoded strings, then add the "trigger"
-//	// Properties within the "activity" object
-//
-//	// Build out the actvity's trigger
-//	const char* triggerJson =
-//			"{\"key\":\"fired\","
-//			"\"method\":\"palm://com.palm.db/watch\","
-//			"}";
-//	MojObject trigger;
-//	trigger.fromJson(triggerJson);
-//	MojDbQuery dbQuery;
-//	getLoginStateQuery(dbQuery);
-//	MojObject queryDetails;
-//	dbQuery.toObject(queryDetails);
-//	MojObject query;
-//	query.put("query", queryDetails);
-//	trigger.put("params", query);
-//
-//	// Build out the activity
-//	const char* activityJson =
-//			"{\"name\":\"Libpurple loginstate\","
-//			"\"description\":\"Watch for changes to the imloginstate\","
-//			"\"type\": {\"foreground\": true},"
-//			"\"callback\":{\"method\":\"palm://com.palm.imlibpurple/loginStateChanged\"}"
-//			"}";
-//	MojObject activity;
-//	activity.fromJson(activityJson);
-//	activity.put("trigger", trigger);
-//
-//	// requirements for internet:true
-//	MojObject requirements;
-//	err = requirements.put("internet", true);
-//	MojErrCheck(err);
-//	err = activity.put("requirements", requirements);
-//	MojErrCheck(err);
-//
-//	MojObject activityCreateParams;
-//	activityCreateParams.putBool("start", true);
-//	activityCreateParams.put("activity", activity);
-//	//TODO should this be Unlimited or just one-off???
-//	err = watchReq->send(m_setWatchSlot, "com.palm.activitymanager", "create", activityCreateParams, MojServiceRequest::Unlimited);
-//	MojErrCheck(err);
-//
-//	return err;
-//}
-
 
 // This is a callback from the LibpurpleAdapter for notification of login events (success, failed, disconnected)
 void IMLoginStateHandler::loginResult(const char* serviceName, const char* username, LoginCallbackInterface::LoginResult type, bool loggedOut, const char* errCode, bool noRetry)
