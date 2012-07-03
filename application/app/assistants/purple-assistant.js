@@ -1,5 +1,5 @@
 
-function PurpleAssistant (params) {
+function PurpleAssistant(params) {
     this.template = params.initialTemplate || params.template;
 
     this.username = params.username || "";
@@ -25,7 +25,8 @@ PurpleAssistant.prototype.setup = function() {
     this.controller.setupWidget('username',
         {
             hintText: this.template.loc_usernameExplainLabel || "",
-            focus: true
+            autoFocus: true,
+            textCase: Mojo.Widget.steModeLowerCase
         },
         this.usernameModel
     );
@@ -78,8 +79,10 @@ PurpleAssistant.prototype.setup = function() {
             prpl: this.template.prpl,
             locale: Mojo.Locale.getCurrentLocale()
         },
-        onSuccess: this.optionsSuccess.bind(this)
-        // TODO: onFailure: Return
+        onSuccess: this.optionsSuccess.bind(this),
+        onFailure: function(response) {
+            Mojo.Log.error("Couldn't get options: " + JSON.stringify(response));
+        }
     });
 };
 
@@ -92,7 +95,6 @@ PurpleAssistant.prototype.optionsSuccess = function(response) {
     
     this.createOptionsWidget(stripped_options);
 
-    Mojo.Log.info("Setup create button:");
     this.controller.listen(this.controller.get('CreateAccountButton'),
             Mojo.Event.tap,
             this.createAccount.bindAsEventListener(this)
@@ -101,10 +103,10 @@ PurpleAssistant.prototype.optionsSuccess = function(response) {
 
 PurpleAssistant.prototype.createAccount = function(ev) {
     Mojo.Log.info("Creating account");
-    if (this.usernameModel.value == "")
+    if (this.usernameModel.value === "")
     {
         Mojo.Log.error("No username entered");
-        // Mojo.Controller.errorDialog("Please enter a valid username");
+        Mojo.Controller.errorDialog("Please enter a valid username");
         this.enableControls();
         return;
     }
@@ -127,6 +129,7 @@ PurpleAssistant.prototype.createAccount = function(ev) {
 };
 
 PurpleAssistant.prototype.eventSuccess = function(response) {
+    Mojo.Log.info("eventSuccess: " + JSON.stringify(response));
     if ("credentials" in response)
     {
         var result = {
@@ -150,15 +153,13 @@ PurpleAssistant.prototype.eventSuccess = function(response) {
 };
 
 PurpleAssistant.prototype.eventFail = function(response) {
-    Mojo.Log.error(JSON.stringify(response))
+    Mojo.Log.error("eventFail: " + JSON.stringify(response));
     if (response.errorCode) {
-        this.controller.errorDialog(response.errorText || "");
+        var text = response.errorText || response.error || "";
+        Mojo.Log.info("Showing error " + text);
+        Mojo.Controller.errorDialog(text);
     }
-    else
-    {
-        this.enableControls();
-        // TODO: Hide error message
-    }
+    this.enableControls();
 };
 
 PurpleAssistant.prototype.enableControls = function(val) {
@@ -171,7 +172,7 @@ PurpleAssistant.prototype.disableControls = function(val) {
 };
 
 PurpleAssistant.prototype.toggleControls = function(val) {
-    val = !!val;
+    val = !val;
     this.usernameModel.disabled = val;
     this.passwordModel.disabled = val;
 
@@ -275,7 +276,7 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
             if ("default_value" in node)
                 model.value = node.default_value || "";
 
-            if (node.type == "list")
+            if (node.type === "list")
             {
                 model.choices = [];
                 for (var name_ in node.choices)
@@ -291,11 +292,10 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
 
     // Setup widgets
     this.controller.setupWidget("optionWidget_string", {
-        changeOnKeyPress: true
+        textCase: Mojo.Widget.steModeLowerCase
         }, {});
 
     this.controller.setupWidget("optionWidget_int", {
-        changeOnKeyPress: true,
         charsAllow: function(c) {
             if (/[0-9]/.test(c))
                 return true;
@@ -313,15 +313,18 @@ PurpleAssistant.prototype.createOptionsWidget = function(options) {
 
     for (var name in options) {
         if (this.controller.get(name))
+        {
+            Mojo.Log.info("Found elem " + name + ", setting up listener.");
             this.controller.listen(
                 this.controller.get(name),
                 Mojo.Event.propertyChange,
                 this.prefsChanged.bindAsEventListener(this, name)
-        );
+            );
+        }
     }
 };
 
-PurpleAssistant.prototype.prefsChanged = function(name, ev) {
-    Mojo.Log.info("Changed pref: " + name + " to " + ev);
+PurpleAssistant.prototype.prefsChanged = function(ev, name) {
+    Mojo.Log.info("Changed pref: " + name + " to " + ev.value);
     this.prefs[name] = ev.value;
 };
