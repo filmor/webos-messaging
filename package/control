@@ -1,5 +1,5 @@
-Package: org.webosinternals.purple
-Version: 0.9.3
+Package: @APPNAME@
+Version: @VERSION@
 Section: Services and Plugins
 Priority: optional
 Architecture: armv7

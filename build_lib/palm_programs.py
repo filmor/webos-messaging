@@ -14,7 +14,7 @@ def configure(conf):
                                 "APP_PATH=\"%s\"" % conf.env.APP_PATH]
                          )
     conf.env.append_value("CXXFLAGS_PALM_BUILD", "-std=c++0x")
-    conf.env.append_value("INCLUDES_PALM_BUILD", [libpurple.get_path()])
+#    conf.env.append_value("INCLUDES_PALM_BUILD", [libpurple.get_path()])
 
 def _flatten(l):
     r = []
@@ -38,7 +38,7 @@ def build(bld):
     validator = bld.env.PALM_PREFIX + "purple.validator"
     transport = bld.env.PALM_PREFIX + "purple.transport"
 
-    install_path = "${PREFIX}/files/var/usr/sbin"
+    install_path = "${SYSTEM_IPKG_PATH}/var/usr/sbin"
 
     bld.program(target=validator,
                 source=bld.path.ant_glob(av_glob),
