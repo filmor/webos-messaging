@@ -10,17 +10,17 @@
 
     "@icons": {
         "icon22": {
-            "path": "$pidgin_path/pidgin/pixmaps/protocols/22/$iconname.png",
+            "path": "$icon_path/22/$iconname.png",
             "size": 22,
             "name": "images/$iconname-22x22.png"
         },
         "icon32": {
-            "path": "$pidgin_path/pidgin/pixmaps/protocols/scalable/$iconname.svg",
+            "path": "$icon_path/scalable/$iconname.svg",
             "size": 32,
             "name": "images/$iconname-32x32.png"
         },
         "icon48": {
-            "path": "$pidgin_path/pidgin/pixmaps/protocols/48/$iconname.png",
+            "path": "$icon_path/48/$iconname.png",
             "size": 48,
             "name": "images/$iconname-48x48.png"
         }

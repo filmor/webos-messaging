@@ -1,6 +1,7 @@
 #!/bin/sh
 ./waf -j3 || exit 1
-./install.sh || exit 1
+rm -rf ipkg_root
+./waf install --destdir=ipkg_root || exit 1
 
 pushd build > /dev/null
 ipkg-build ../ipkg_root

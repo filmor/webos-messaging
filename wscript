@@ -1,5 +1,6 @@
-from build_lib.util import join, get_pkg_path
+from build_lib.util import get_pkg_path, join
 
+top="."
 VERSION='0.9.4'
 APPNAME='org.webosinternals.purple'
 
@@ -10,9 +11,6 @@ PALM_PREFIX='org.webosinternals.'
 def options(opt):
     opt.load('compiler_c compiler_cxx')
     opt.load('libpurple palm_programs', tooldir=TOOLDIR)
-    opt.add_option('--protocols', action='store',
-            default="msn,icq,jabber,novell,yahoo,sipe,sametime",
-                   help="Protocols")
 
 def configure(conf):
     conf.env.INCLUDES = []
@@ -46,7 +44,6 @@ def configure(conf):
         "psychic",
         ]
 
-    conf.env.PURPLE_PROTOCOLS = conf.options.protocols.split(",")
     conf.env.PURPLE_PLUGINS = plugins
     conf.env.PURPLE_SSL = "gnutls"
 
@@ -55,9 +52,11 @@ def configure(conf):
     conf.env.PLUGIN_IPKG_PATH = join(conf.env.APP_IPKG_PATH, "plugins")
     conf.env.SYSTEM_IPKG_PATH = join(conf.env.APP_IPKG_PATH, "system")
 
-    conf.env.APP_PATH = join(conf.env.PALM_APP_PREFIX, conf.env.APP_IPKG_PATH)
+    conf.env.APP_PATH = join(conf.env.PALM_APP_PREFIX,
+                             conf.env.APP_IPKG_PATH[1:])
+    print conf.env.APP_PATH
     conf.env.PLUGIN_PATH = join(conf.env.PALM_APP_PREFIX,
-            conf.env.PLUGIN_IPKG_PATH)
+                                conf.env.PLUGIN_IPKG_PATH[1:])
 
     conf.load("libpurple palm_programs", tooldir=TOOLDIR)
 
@@ -73,7 +72,7 @@ def build(bld):
                       cwd=start_dir, relative_trick=True)
 
     start_dir = bld.path.find_dir(get_pkg_path("pidgin"))
-    bld.install_files("${APP_IPKG_PATH}", start_dir.ant_glob("ca-certs/**/*"),
+    bld.install_files("${APP_IPKG_PATH}", start_dir.ant_glob("share/ca-certs/**/*"),
                       cwd=start_dir, relative_trick=True)
 
     # TODO: Locales

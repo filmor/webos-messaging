@@ -1,15 +1,8 @@
-#!/usr/bin/env python
-
 import json
 import sys
 import string
 import subprocess
 from os import path, extsep, makedirs
-from shutil import copyfile
-
-def _get_substitutions(vals):
-    return dict([(key, vals[key]) for key in vals if not key.startswith("@")])
-
 
 def _recursive_update(to_dict, from_dict):
     for key, val in from_dict.iteritems():
@@ -40,18 +33,6 @@ def _apply_subs(val, subs):
         return val
 
 
-CONVERSION_RULE = 'convert "{from_path}" "{to_path}"'
-SIZE_CONVERSION_RULE = 'convert -geometry {size}x{size} "{from_path}" "{to_path}"'
-
-def _convert(from_path, to_path, size, type):
-    if type == 'png' and size == None:
-        copyfile(from_path, to_path)
-
-    rule = CONVERSION_RULE if size == None else SIZE_CONVERSION_RULE
-    cmd = rule.format(from_path=from_path, to_path=to_path, size=size)
-
-    if subprocess.call(cmd, shell=True):
-        raise OSError("Couldn't convert")
 
 class Context(object):
     def __init__(self, filename, includes=[], substitutions={}):
@@ -61,8 +42,8 @@ class Context(object):
 
         obj = json.load(open(filename))
 
-        includes += obj.get("@include", [])
-        includes += [filename]
+        self._includes = includes + obj.get("@include", [])
+        includes = self._includes + [filename]
 
         for i in includes:
             try:
@@ -71,7 +52,13 @@ class Context(object):
                 json_file = open(path.join(path.dirname(filename), i))
             inc_obj = json.load(json_file)
 
-            self._subs.update(_get_substitutions(inc_obj))
+            self._subs.update(
+                dict([
+                        (key, inc_obj[key])
+                        for key in inc_obj
+                        if not key.startswith("@")
+                     ])
+                )
 
             keys = [i for i in inc_obj if i.startswith("@") and i != "@include"]
 
@@ -82,8 +69,17 @@ class Context(object):
                     _recursive_update(self._data[name], inc_obj[key])
                 else:
                     self._data[name] = inc_obj[key]
+        
+        self._do_subs()
+        self._do_icons()
+
+    def get_images(self):
+        return self._images
+
+    def get_includes(self):
+        return self._includes
     
-    def do_subs(self, substitutions={}):
+    def _do_subs(self, substitutions={}):
         self._subs.update(substitutions)
 
         for key in self._subs:
@@ -97,7 +93,7 @@ class Context(object):
             if "$" in val:
                 raise RuntimeError("Too many recursions")
         
-    def do_icons(self):
+    def _do_icons(self):
         d = self._data.setdefault("icons", {})
         self._data["icons"] = _apply_subs(d, self._subs)
 
@@ -110,39 +106,80 @@ class Context(object):
                     val.get("type", path.splitext(val["path"])[1][1:])
                 ))
 
-    def write(self, target, *args, **kwargs):
-        self.do_subs()
-        self.do_icons()
-
+    def template_id(self):
         output = _apply_subs(self._data["template"], self._subs)
+        return output["templateId"]
 
+    def write(self, target):
+        output = _apply_subs(self._data["template"], self._subs)
         template_id = output["templateId"]
-        out = path.join(target, template_id)
-
-        for from_path, to_path, size, type in self._images:
-            try:
-                makedirs(path.join(out, path.dirname(to_path)))
-            except OSError:
-                pass
-
-            print "Processing image %s" % (to_path,)
-            _convert(from_path, path.join(out, to_path), size, type)
 
         # TODO: Translations
-        out_file = path.join(out, template_id + ".json")
-        json.dump(output, open(out_file, "w"), *args, **kwargs)
+        json.dump(output, open(target, "w"), indent=4, sort_keys=True)
 
-def create_account(name, out, pidgin_path, proto="prototype.json"):
-    ctx = Context(name, includes=[proto],
-                  substitutions={"pidgin_path": pidgin_path})
-    ctx.write(out, indent=4, sort_keys=True)
+from waflib import Utils, Task, Errors, Logs, Node
+from waflib.Configure import conf
+from Task import task_type_from_func, simple_task_type
+from waflib.TaskGen import feature, before_method
+from shutil import copyfile
 
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description="Create account files")
-    parser.add_argument('pidgin')
-    parser.add_argument('output')
-    parser.add_argument('filename')
-    parser.add_argument('prototype')
-    args = parser.parse_args()
-    create_account(args.filename, args.output, args.pidgin, args.prototype)
+def configure(self):
+    self.find_program("convert", var="CONVERT")
+    self.find_program("cp", var="COPY")
+
+def build_account(self):
+    self.context.write(self.outputs[0].abspath())
+    return 0
+task_type_from_func('account', func=build_account)
+
+def do_copy(self):
+    copyfile(inputs[0].abspath(), outputs[0].abspath())
+task_type_from_func('copy_file', func=do_copy)
+task_type_from_func('convert_image',
+                 func="${CONVERT} ${CONVERT_FLAGS} ${SRC} ${TGT}")
+
+@feature("account")
+@before_method("process_source")
+def init_account_task(self):
+    proto = getattr(self, 'prototype', None)
+    includes = [proto] if proto else []
+    defines = getattr(self, 'defines', {})
+    node = self.path.find_resource(self.source)
+    install_path = getattr(self, 'install_path', None)
+
+    if not node:
+        self.bld.fatal("Could not find source %s" % self.source)
+
+    # Bypass execution of process_source
+    self.meths.remove('process_source')
+
+    out_node = self.path.find_or_declare([self.target])
+
+    tsk = self.create_task('account', node)
+    tsk.install_path = install_path
+    tsk.context = Context(node.abspath(),
+                          includes=includes,
+                          substitutions=defines)
+
+    template_id = tsk.context.template_id()
+    account_node = out_node.find_or_declare([template_id])
+    account_node.find_or_declare(["images"]).mkdir()
+    json_node = account_node.find_or_declare([template_id + ".json"])
+    tsk.outputs = [json_node]
+
+    install_files = [json_node]
+    for from_path, to_path, size, type in tsk.context.get_images():
+        from_node = self.path.find_resource([from_path])
+        to_node = account_node.find_or_declare([to_path])
+        ct = None
+        if type != 'png' or size != None:
+            ct = self.create_task('convert_image', from_node, [to_node])
+            if size != None:
+                ct.env.CONVERT_FLAGS = ["-geometry", "%sx%s" % (size, size)]
+        else:
+            ct = self.create_task('copy_file', from_node, [to_node])
+        tsk.set_run_after(ct)
+        install_files += [to_node]
+
+    self.bld.install_files(path.join(install_path, template_id), install_files)
+

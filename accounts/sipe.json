@@ -1,0 +1,7 @@
+{
+    "name": "sipe",
+    "@template": {
+        "loc_name": "Office Communicator",
+        "prpl": "prpl-sipe"
+    }
+}

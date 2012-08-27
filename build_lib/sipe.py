@@ -4,12 +4,13 @@ from os.path import join
 def configure(ctx):
     path, version = get_pkg_path_and_version("pidgin-sipe")
     
-    ctx.env.SIPE_PATH = join(path, "src")
+    ctx.env.SIPE_PATH = path
     ctx.env.SIPE_VERSION = version
 
     ctx.env.append_value("DEFINES_SIPE_BUILD", "HAVE_CONFIG_H")
-    ctx.env.append_value("INCLUDES_SIPE_BUILD", ["pidgin-sipe_config",
-                                                 join(ctx.env.SIPE_PATH, "api")])
+    ctx.env.append_value("INCLUDES_SIPE_BUILD",
+                            ["pidgin-sipe_config",
+                             join(ctx.env.SIPE_PATH, "src", "api")])
 
     headers = ["dlfcn", "inttypes", "langinfo", "locale", "memory", "stdint",
                "stdlib", "strings", "string", "sys/sockio", "sys/stat",
@@ -23,6 +24,7 @@ def configure(ctx):
     ctx.define("HAVE_GETTEXT", 1)
     ctx.define("HAVE_BIND_TEXTDOMAIN_CODESET", 1)
     ctx.define("STDC_HEADERS", 1)
+    ctx.define("LOCALEDIR", "")
     ctx.define("PACKAGE_NAME", "pidgin-sipe")
     ctx.define("PACKAGE_STRING", "pidgin-sipe %s" % version)
     ctx.define("PACKAGE_TARNAME", "pidgin-sipe")
@@ -37,11 +39,13 @@ def configure(ctx):
 
 def build(ctx):
     ctx.objects(target="libsipe",
-                source=ant_glob(ctx, ctx.env.SIPE_PATH, "core", "*.c",
+                source=ant_glob(ctx, ctx.env.SIPE_PATH, "src", "core", "*.c",
                                 exclude=["sip-sec-krb5.c",
                                          "sip-sec-sspi.c",
                                          "sipe-mime.c",
-                                         "sipe-win32dep.c"]),
-                includes=join(ctx.env.SIPE_PATH, "api"),
+                                         "sipe-win32dep.c",
+                                         "sip-sec-ntlm.c",
+                                         "*test*.c"]),
+                includes=join(ctx.env.SIPE_PATH, "src", "api"),
                 use="GLIB NSS SIPE_BUILD XML"
                )

@@ -1,0 +1,7 @@
+{
+    "name": "meanwhile",
+    "@template": {
+        "loc_name": "Sametime",
+        "prpl": "prpl-meanwhile"
+    }
+}

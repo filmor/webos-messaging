@@ -10,6 +10,7 @@ def configure(conf):
     conf.load('compiler_c intltool')
 
     path, version = get_pkg_path_and_version("pidgin")
+    conf.env.PIDGIN_PATH = path
     conf.env.PURPLE_PATH = join(path, "libpurple")
     conf.env.PURPLE_VERSION = version
 
@@ -21,7 +22,6 @@ def configure(conf):
         conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
 
     plugins = conf.env.PURPLE_PLUGINS
-    protocols = conf.env.PURPLE_PROTOCOLS
 
     conf.check_cfg(atleast_pkgconfig_version='0.1')
     conf.check_cfg(package='libxml-2.0', uselib_store='XML',
@@ -63,12 +63,11 @@ def configure(conf):
     conf.define("HAVE_ICONV", 1)
     conf.define("SIZEOF_TIME_T", 4, quote=False)
     conf.define("HAVE_CONFIG_H", 1, quote=False)
-#    conf.define("HAVE_CYRUS_SASL", 1, quote=False)
     conf.define("HAVE_GNUTLS_PRIORITY_FUNCS", 1)
     conf.define("_GNU_SOURCE", 1, quote=False)
 
     conf.define("SSL_CERTIFICATES_DIR",
-            join(conf.env.APP_PATH, "ca-certs")
+            join(conf.env.APP_PATH, "share", "ca-certs")
     )
     conf.define("LIBDIR", conf.env.PLUGIN_PATH)
 
@@ -78,7 +77,7 @@ def configure(conf):
                 join(conf.env.APP_PATH, "share", "locale")
     )
 
-    conf.define("STATIC_PROTO_INIT", "", quote=False)
+    conf.define("STATIC_PROTO_INIT", "void static_proto_init() {}", quote=False)
     conf.write_config_header('libpurple_config/config.h')
 
     conf.load('protocols', tooldir=conf.env.TOOLDIR)
@@ -115,5 +114,6 @@ def build(bld):
                 export_includes=bld.env.PURPLE_PATH,
                 includes=bld.env.PURPLE_PATH,
                 use=use + ["plugins"],
-                install_path="${APP_PATH}/system/var/usr/lib"
+                install_path="${APP_IPKG_PATH}/system/var/usr/lib"
              )
+

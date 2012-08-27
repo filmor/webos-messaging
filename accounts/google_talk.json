@@ -6,7 +6,7 @@
 
     "@icons": {
         "icon48": {
-            "path": "$pidgin_path/pidgin/pixmaps/protocols/48/jabber.png"
+            "path": "$icon_path/48/jabber.png"
         }
     },
 

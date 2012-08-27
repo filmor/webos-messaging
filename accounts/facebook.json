@@ -7,7 +7,7 @@
 
     "@icons": {
         "icon32": {
-            "path": "$pidgin_path/pidgin/pixmaps/protocols/48/$iconname.png"
+            "path": "$icon_path/48/$iconname.png"
         }
     },
 
