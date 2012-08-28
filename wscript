@@ -54,7 +54,6 @@ def configure(conf):
 
     conf.env.APP_PATH = join(conf.env.PALM_APP_PREFIX,
                              conf.env.APP_IPKG_PATH[1:])
-    print conf.env.APP_PATH
     conf.env.PLUGIN_PATH = join(conf.env.PALM_APP_PREFIX,
                                 conf.env.PLUGIN_IPKG_PATH[1:])
 

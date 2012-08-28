@@ -12,7 +12,7 @@ def _get_accounts(name):
 
 def build(ctx):
     ctx.load("account", tooldir="build_lib")
-    for name in "msn icq jabber novell yahoo sipe meanwhile".split(" "):
+    for name in "msn icq jabber novell yahoo sipe sametime".split(" "):
         use = ["BASE", "GLIB", "XML", "GNUTLS", "PURPLE_BUILD"]
         root_path = join(ctx.env.PURPLE_PATH, "protocols")
         icon_path = join(ctx.env.PIDGIN_PATH, "pidgin", "pixmaps", "protocols")
