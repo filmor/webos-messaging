@@ -1,0 +1,23 @@
+{
+    "pidgin": {
+        "url": "{sf}/pidgin/files/Pidgin/{version}/{name_version}",
+        "type": "tar.bz2",
+        "version": "2.10.6"
+    },
+    "meanwhile": {
+        "url": "{sf}/meanwhile/files/meanwhile/{version}/{filename}",
+        "type": "tar.gz",
+        "version": "1.0.2"
+    },
+    "pidgin-sipe": {
+        "url": "{sf}/sipe/files/sipe/{name_version}/{filename}",
+        "type": "tar.bz2",
+        "version": "1.13.3"
+    },
+    "libs": {
+        "url": "{gh}/filmor/webos-messaging/{filename}",
+        "filename": "libs.tar.bz2",
+        "output": ".",
+        "type": "tar.bz2"
+    }
+}

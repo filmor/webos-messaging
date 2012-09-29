@@ -89,3 +89,55 @@ def build(bld):
 def install(bld):
     bld.load('libpurple palm_programs application', tooldir=TOOLDIR)
 
+def get_libs(ctx):
+    ctx.load('util', tooldir=TOOLDIR)
+
+    from waflib import Logs
+    import json, os, urllib, tarfile, os.path
+    
+    manifest = json.load(open("manifest.json"))
+
+    prototype = {
+            "output": "deps/",
+            "name_version": "{name}-{version}",
+            "filename": "{name_version}.{type}",
+            "sf": "http://sourceforge.net/projects",
+            "gh": "https://github.com/downloads"
+    }
+
+    for name in manifest:
+        d = dict(prototype)
+        d.update(manifest[name])
+        d["name"] = name
+
+        for i in ("output", "url", "type", "filename"):
+            value = d[i]
+            for j in xrange(10):
+                new_val = value.format(**d)
+                if new_val == value:
+                    break
+                else:
+                    value = new_val
+
+            d[i] = value
+
+        manifest[name] = d
+
+    dl_dir = "download"
+
+    try:
+        os.makedirs(dl_dir)
+    except:
+        pass
+
+    for name in manifest:
+        filename = os.path.join(dl_dir, manifest[name]["filename"])
+
+        if not os.path.exists(filename):
+            Logs.info("d: Retrieving {name} from {url}".format(**manifest[name]))
+            out, msg = urllib.urlretrieve(manifest[name]["url"], filename)
+
+        Logs.info("x: Unpacking {filename}".format(**manifest[name]))
+        tar = tarfile.open(filename)
+        tar.extractall(manifest[name]["output"])
+

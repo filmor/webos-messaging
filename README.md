@@ -20,22 +20,9 @@ Building
 --------
 
 To get all the source dependencies (pidgin, pidgin-sipe and meanwhile for now)
-just launch
+and support libraries that are used during link-time just launch
 
-    $ ./get_deps.sh
-
-in the root directory. You will also have to get some libraries, either from
-your webOS device or using:
-
-    $ ./get_libs.sh
-
-Those libs are only needed to compile the plugins, they won't get deployed. I'm
-actually looking for a better solution here, but that's the way it is for now :)
-
-If you want to get the files from your device just follow this procedure: Try to
-compile and get those files from your device that are listed as missing. You
-will definitely need `libstdc++.so` from the device as the one provided with the
-cross-compiler is broken.
+    $ ./waf get_libs
 
 After that you can configure the
 package using:
@@ -43,7 +30,8 @@ package using:
     $ ./waf configure
 
 Remember to prepare your environment for cross-compiling, e.g. by setting
-`CHOST=arm-none-linux-gnueabi`.
+`CHOST=arm-none-linux-gnueabi` or by explicitly choosing
+`CC=arm-none-linux-gnueabi-gcc` and `CXX=arm-none-linux-gnueabi-g++`.
 
 After configuring you can build everything at once using the following command,
 where you might want to consider using the flag `-jN`, with N being the number

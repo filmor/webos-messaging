@@ -3,6 +3,7 @@
 build/
 ref/
 deps/
+download/
 build_lib/lib
 ipkg_root/
 .waf*
