@@ -1,4 +1,4 @@
-from os.path import join
+from os.path import join, exists
 import waflib
 from glob import glob
 from re import match
@@ -42,12 +42,12 @@ def get_libs(ctx):
         mf = manifest[name]
         filename = join("download", mf["filename"])
 
-        if not os.path.exists(filename):
+        if not exists(filename):
             from urllib import urlretrieve
             Logs.info("d: Retrieving {name} from {url}".format(**mf))
             out, msg = urlretrieve(mf["url"], filename)
 
-        Logs.info("x: Unpacking {filename}".format(**mf[name]))
+        Logs.info("x: Unpacking {filename}".format(**mf))
         tar = tarfile.open(filename)
         tar.extractall(mf["output"])
 
