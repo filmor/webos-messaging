@@ -939,6 +939,7 @@ static void account_login_failed_cb(PurpleConnection* gc, PurpleConnectionError 
 
 	const char* mojoFriendlyErrorCode = getMojoFriendlyErrorCode(type);
 	MojLogInfo(IMServiceApp::s_log, _T("account_login_failed_cb: removing account from onlineAccountData hash table. accountKey %s"), accountKey.c_str());
+    MojLogError(IMServiceApp::s_log, "Error description: %s", description);
 
 	
 	s_onlineAccountData.erase(accountKey);
