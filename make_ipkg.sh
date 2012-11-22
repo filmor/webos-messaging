@@ -3,6 +3,8 @@
 rm -rf ipkg_root
 ./waf install --destdir=ipkg_root || exit 1
 
+find ipkg_root/ -type f -exec arm-none-linux-gnueabi-strip {} \; 2> /dev/null
+
 pushd build > /dev/null
 ipkg-build ../ipkg_root
 for i in *.ipk
