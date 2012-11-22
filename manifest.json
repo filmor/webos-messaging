@@ -1,6 +1,6 @@
 {
     "pidgin": {
-        "url": "{sf}/pidgin/files/Pidgin/{version}/{name_version}",
+        "url": "{sf}/pidgin/files/Pidgin/{version}/{filename}",
         "type": "tar.bz2",
         "version": "2.10.6"
     },
