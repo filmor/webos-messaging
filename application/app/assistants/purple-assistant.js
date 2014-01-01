@@ -193,9 +193,9 @@ PurpleAssistant.prototype.showPopup = function(popup) {
     };
     if ("title" in popup)
         dialog.title = popup.title;
-    if ("primary" in response)
+    if ("primary" in popup)
         dialog.message += popup.primary;
-    if ("secondary" in response)
+    if ("secondary" in popup)
     {
         if (dialog.message != "")
             dialog.message += "<br/>";
