@@ -206,7 +206,7 @@ PurpleAssistant.prototype.showPopup = function(popup) {
     if ("actions" in popup)
     {
         var choices = [];
-        for (var i in popup.actions)
+        for (var i = 0; i<popup.actions.length; i++)
         {
             choices.push({
                 label: popup.actions[i],
