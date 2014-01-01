@@ -253,7 +253,7 @@ var _TypeToTemplate = {
     "string": "textfield",
     "int": "textfield",
     "bool": "checkbox",
-    "list": "row-list"
+    "list": "list"
 };
 
 PurpleAssistant.prototype.createOptionsWidget = function(options) {
