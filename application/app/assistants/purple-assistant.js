@@ -193,9 +193,9 @@ PurpleAssistant.prototype.showPopup = function(popup) {
     };
     if ("title" in popup)
         dialog.title = popup.title;
-    if ("primary" in response)
+    if ("primary" in popup)
         dialog.message += popup.primary;
-    if ("secondary" in response)
+    if ("secondary" in popup)
     {
         if (dialog.message != "")
             dialog.message += "<br/>";
@@ -206,13 +206,13 @@ PurpleAssistant.prototype.showPopup = function(popup) {
     if ("actions" in popup)
     {
         var choices = [];
-        for (var i in popup.actions)
+        for (var i = 0; i<popup.actions.length; i++)
         {
             choices.push({
                 label: popup.actions[i],
                 value: {
-                    id: popup.actions[i].id,
-                    request_id: popup.actions[i].request_id
+                    id: i,
+                    request_id: popup.id
                 }
             });
         }
@@ -253,7 +253,7 @@ var _TypeToTemplate = {
     "string": "textfield",
     "int": "textfield",
     "bool": "checkbox",
-    "list": "row-list"
+    "list": "list"
 };
 
 PurpleAssistant.prototype.createOptionsWidget = function(options) {

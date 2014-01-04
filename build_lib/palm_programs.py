@@ -7,8 +7,15 @@ def options(opt):
 def configure(conf):
     conf.load('compiler_cxx')
 
-    conf.env.append_value("LIB_PALM_BUILD", ["lunaservice", "mojoluna",
-                                  "mojocore", "cjson", "mojodb"])
+    conf.env.append_value("LIB_PALM_BUILD", ["lunaservice",
+                                             "mojoluna",
+                                             "gcrypt",
+                                             "gpg-error",
+                                             "PmLogLib",
+                                             "gthread-2.0",
+                                             "mojocore",
+                                             "cjson",
+                                             "mojodb"])
     conf.env.append_value("DEFINES_PALM_BUILD", [
                                 "MOJ_LINUX", "DEVICE",
                                 "APP_PATH=\"%s\"" % conf.env.APP_PATH]
