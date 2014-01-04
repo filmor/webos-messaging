@@ -211,8 +211,8 @@ PurpleAssistant.prototype.showPopup = function(popup) {
             choices.push({
                 label: popup.actions[i],
                 value: {
-                    id: popup.actions[i].id,
-                    request_id: popup.actions[i].request_id
+                    id: i,
+                    request_id: popup.id
                 }
             });
         }
