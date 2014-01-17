@@ -19,7 +19,10 @@ def configure(conf):
         # core-ssl to be found (see ssl.c:probe_ssl_plugins)
         conf.env.PURPLE_PLUGINS += ["ssl-" + conf.env.PURPLE_SSL, "ssl"]
 
-        conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls"])
+        conf.env.append_value("LIB_PURPLE_BUILD", ["gnutls",
+                                                   "gcrypt",
+                                                   "gpg-error",
+                                                   "gthread-2.0"])
 
     plugins = conf.env.PURPLE_PLUGINS
 
