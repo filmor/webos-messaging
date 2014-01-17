@@ -9,10 +9,7 @@ def configure(conf):
 
     conf.env.append_value("LIB_PALM_BUILD", ["lunaservice",
                                              "mojoluna",
-                                             "gcrypt",
-                                             "gpg-error",
                                              "PmLogLib",
-                                             "gthread-2.0",
                                              "mojocore",
                                              "cjson",
                                              "mojodb"])
