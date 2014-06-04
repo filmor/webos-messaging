@@ -5,7 +5,7 @@ import subprocess
 from os import path, extsep, makedirs
 
 def _recursive_update(to_dict, from_dict):
-    for key, val in from_dict.iteritems():
+    for key, val in from_dict.items():
         if type(val) is dict:
             assert type(to_dict.get(key, {})) is dict
             new_to_dict = to_dict.setdefault(key, {})
@@ -27,7 +27,7 @@ def _apply_subs(val, subs):
         return [_apply_subs(i, subs) for i in val]
     elif type(val) is dict:
         return dict((key, _apply_subs(val[key], subs)) for key in val)
-    elif isinstance(val, basestring):
+    elif isinstance(val, str):
         return string.Template(val).substitute(subs)
     else:
         return val
@@ -83,7 +83,7 @@ class Context(object):
         self._subs.update(substitutions)
 
         for key in self._subs:
-            for i in xrange(20):
+            for i in range(20):
                 val = string.Template(self._subs[key]).safe_substitute(self._subs)
                 self._subs[key] = val
                 # TODO: Handle $$
@@ -97,7 +97,7 @@ class Context(object):
         d = self._data.setdefault("icons", {})
         self._data["icons"] = _apply_subs(d, self._subs)
 
-        for key, val in self._data["icons"].iteritems():
+        for key, val in self._data["icons"].items():
             self._subs[key] = val["name"]
             self._images.append((
                     val["path"],

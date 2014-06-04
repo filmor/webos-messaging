@@ -23,7 +23,7 @@ for name in manifest:
 
     for i in ("root_path", "output", "url", "filename"):
         value = d[i]
-        for j in xrange(10):
+        for j in range(10):
             new_val = value.format(**d)
             if new_val == value:
                 break
