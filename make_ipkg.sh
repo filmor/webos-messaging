@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ./waf -j3 || exit 1
 rm -rf ipkg_root
 ./waf install --destdir=ipkg_root || exit 1
